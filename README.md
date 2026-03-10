@@ -10,7 +10,7 @@ A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Stati
 
 ---
 
-<video src="assets/index-calc-demo.mp4" controls width="100%"></video>
+<video src="https://raw.githubusercontent.com/idobetesh/index-calcs-proxy/master/assets/index-calc-demo.mp4" controls width="100%"></video>
 
 ---
 
