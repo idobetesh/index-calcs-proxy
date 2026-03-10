@@ -101,8 +101,10 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
       return c.json(result);
     }
 
-    // Plain text for Google Sheets IMPORTDATA — two lines, pure numbers, no symbols
-    const plainText = `${result.indexedAmount}\n${result.percentage.toFixed(2)}`;
+    // Plain text for Google Sheets IMPORTDATA — two lines, pure numbers, no symbols.
+    // Line 1: indexed amount (integer). Line 2: percentage as decimal fraction (e.g. 0.0302)
+    // so TEXT(value, "0.00%") in Sheets renders correctly as "3.02%".
+    const plainText = `${result.indexedAmount}\n${(result.percentage / 100).toFixed(4)}`;
     return new Response(plainText, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',

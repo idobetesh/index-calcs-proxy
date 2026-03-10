@@ -89,8 +89,8 @@ describe('GET /calc - text response', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/plain');
     const text = await res.text();
-    // Two lines: pure indexed amount (integer) then percentage (2 decimal places)
-    expect(text).toMatch(/^\d+\n\d+\.\d{2}$/);
+    // Two lines: indexed amount (integer) then percentage as decimal fraction (4dp, e.g. 0.0302)
+    expect(text).toMatch(/^\d+\n0\.\d{4}$/);
   });
 
   it('sets Cache-Control: no-store', async () => {
