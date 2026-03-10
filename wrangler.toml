@@ -1,0 +1,8 @@
+name = "index-calcs-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+# SECRET_KEY set via: wrangler secret put SECRET_KEY

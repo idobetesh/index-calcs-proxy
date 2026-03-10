@@ -1,0 +1,1195 @@
+import { Context } from 'hono';
+import { Env } from '../types/index.js';
+
+function buildHtml(secret: string): string {
+  return `<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Index Calculator — Israeli CBS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3348;
+      --border-focus: #6366f1;
+      --text: #e8eaf6;
+      --text-muted: #8b90a7;
+      --text-label: #a0a5bc;
+      --accent: #6366f1;
+      --accent-hover: #4f52d6;
+      --accent-dim: rgba(99,102,241,0.15);
+      --green: #34d399;
+      --green-bg: rgba(52,211,153,0.1);
+      --green-border: rgba(52,211,153,0.25);
+      --red: #f87171;
+      --red-bg: rgba(248,113,113,0.1);
+      --red-border: rgba(248,113,113,0.25);
+      --yellow: #fbbf24;
+      --card-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      --input-bg: #12151f;
+      --badge-bg: rgba(99,102,241,0.18);
+    }
+    [data-theme="light"] {
+      --bg: #f0f2f8;
+      --surface: #ffffff;
+      --surface2: #f5f7ff;
+      --border: #dde1f0;
+      --border-focus: #6366f1;
+      --text: #1a1d2e;
+      --text-muted: #6b7094;
+      --text-label: #4b5068;
+      --accent: #6366f1;
+      --accent-hover: #4f52d6;
+      --accent-dim: rgba(99,102,241,0.08);
+      --green: #059669;
+      --green-bg: rgba(5,150,105,0.07);
+      --green-border: rgba(5,150,105,0.2);
+      --red: #dc2626;
+      --red-bg: rgba(220,38,38,0.07);
+      --red-border: rgba(220,38,38,0.2);
+      --yellow: #d97706;
+      --card-shadow: 0 4px 24px rgba(99,102,241,0.08);
+      --input-bg: #f8f9ff;
+      --badge-bg: rgba(99,102,241,0.1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+      font-optical-sizing: auto;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 1rem 2rem;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ── Ticker ── */
+    .ticker-bar {
+      width: 100%;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0;
+      overflow: hidden;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      height: 34px;
+    }
+    .ticker-track {
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      animation: ticker-scroll 90s linear infinite;
+      will-change: transform;
+    }
+    .ticker-bar:hover .ticker-track { animation-play-state: paused; }
+    @keyframes ticker-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0 1.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-right: 1px solid var(--border);
+      height: 34px;
+      cursor: default;
+    }
+    .ticker-label { color: var(--text-muted); font-weight: 500; }
+    .ticker-value { color: var(--text); letter-spacing: 0.01em; }
+    .ticker-change { font-size: 0.68rem; font-weight: 700; }
+    .ticker-change.up   { color: var(--green); }
+    .ticker-change.down { color: var(--red); }
+    .ticker-loading {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      padding: 0 1.5rem;
+      animation: ticker-fade 1s ease infinite alternate;
+    }
+    @keyframes ticker-fade { from { opacity: 0.4; } to { opacity: 1; } }
+
+    /* ── Top bar ── */
+    .topbar {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 1.25rem 0 0.75rem;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .brand-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Dark mode toggle ── */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .theme-toggle-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .toggle-track {
+      width: 40px; height: 22px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      position: relative;
+      transition: background 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+    .toggle-track.on { background: var(--accent); border-color: var(--accent); }
+    .toggle-thumb {
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px; left: 2px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--card-shadow);
+      padding: 2rem;
+      width: 100%;
+      max-width: 680px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    /* ── Header ── */
+    .card-header { margin-bottom: 1.75rem; }
+    .card-header h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3rem;
+    }
+    .card-header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--badge-bg);
+      border-radius: 20px;
+      padding: 0.2rem 0.6rem;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Form ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-label);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    label .opt {
+      font-weight: 400;
+      color: var(--text-muted);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.2s;
+      -webkit-appearance: none;
+    }
+    [data-theme="dark"]  input[type="month"] { color-scheme: dark; }
+    [data-theme="light"] input[type="month"] { color-scheme: light; }
+    input:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    input::placeholder { color: var(--text-muted); opacity: 0.6; }
+    select option { background: var(--surface); color: var(--text); }
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: '';
+      position: absolute;
+      right: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--text-muted);
+      pointer-events: none;
+      transition: border-top-color 0.15s;
+    }
+    .select-wrap:focus-within::after { border-top-color: var(--accent); }
+    .select-wrap select { padding-right: 2.2rem; cursor: pointer; }
+
+    .input-prefix-wrap {
+      position: relative;
+    }
+    .input-prefix-wrap .prefix {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      pointer-events: none;
+    }
+    .input-prefix-wrap input { padding-left: 1.75rem; }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 1.5rem 0;
+    }
+
+    /* ── Submit button ── */
+    .btn-wrap { position: relative; overflow: hidden; border-radius: 10px; }
+    .btn {
+      width: 100%;
+      padding: 0.8rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+      transform: translateY(-1px);
+    }
+    .btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Ripple */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      transform: scale(0);
+      animation: ripple-anim 0.55s linear;
+      pointer-events: none;
+    }
+    @keyframes ripple-anim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    /* Loading bar under button */
+    .btn-progress {
+      height: 3px;
+      background: var(--border);
+      border-radius: 0 0 10px 10px;
+      overflow: hidden;
+      display: none;
+      margin-top: -2px;
+    }
+    .btn-progress.active { display: block; }
+    .btn-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), #a78bfa, var(--accent));
+      background-size: 200% 100%;
+      animation: progress-slide 1.4s ease-in-out infinite, progress-shimmer 1.4s linear infinite;
+    }
+    @keyframes progress-slide {
+      0%   { width: 0%;   margin-left: 0; }
+      50%  { width: 75%;  margin-left: 10%; }
+      100% { width: 0%;   margin-left: 110%; }
+    }
+    @keyframes progress-shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .btn.loading .spinner { display: block; }
+    .btn.loading .btn-text { opacity: 0.7; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result ── */
+    .result {
+      margin-top: 1.5rem;
+      border-radius: 12px;
+      overflow: hidden;
+      display: none;
+    }
+    .result.animating {
+      animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    /* Stagger stats */
+    .stat { animation: none; }
+    .result.animating .stat:nth-child(1) { animation: fadeSlot 0.3s 0.15s both; }
+    .result.animating .stat:nth-child(2) { animation: fadeSlot 0.3s 0.22s both; }
+    .result.animating .stat:nth-child(3) { animation: fadeSlot 0.3s 0.29s both; }
+    @keyframes fadeSlot {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-hero {
+      padding: 1.25rem 1.5rem;
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      border-bottom: none;
+      border-radius: 12px 12px 0 0;
+    }
+    .result-hero-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      margin-bottom: 0.3rem;
+      opacity: 0.8;
+    }
+    .result-hero-value {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--green);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .result-hero-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+    }
+
+    .result.error .result-hero {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+    }
+    .result.error .result-hero-label { color: var(--red); }
+    .result.error .result-hero-value { font-size: 1rem; color: var(--red); font-weight: 600; }
+
+    .result-body {
+      padding: 1.25rem 1.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+    .stat-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+    .stat-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .stat-value.positive { color: var(--green); }
+    .stat-value.negative { color: var(--red); }
+
+    .period-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    .period-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.2rem 0.5rem;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.82rem;
+    }
+    .period-arrow { color: var(--accent); font-size: 1rem; }
+
+    .sheets-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+    .sheets-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.35rem;
+    }
+    .sheets-box-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 0.2rem 0.6rem;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+      position: relative;
+      overflow: hidden;
+      min-width: 64px;
+      justify-content: center;
+    }
+    .copy-btn:hover:not(.copied) {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(99,102,241,0.4);
+    }
+    .copy-btn:active:not(.copied) { transform: scale(0.92); }
+    .copy-btn.copied {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+      box-shadow: 0 2px 12px rgba(52,211,153,0.45);
+      animation: copy-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    @keyframes copy-pop {
+      0%   { transform: scale(0.8);  }
+      55%  { transform: scale(1.15); }
+      100% { transform: scale(1);    }
+    }
+    /* Check mark draws itself in */
+    .copy-check {
+      display: inline-block;
+      font-size: 0.85rem;
+      line-height: 1;
+      opacity: 0;
+      transform: scale(0.4) rotate(-20deg);
+      transition: none;
+    }
+    .copy-btn.copied .copy-check {
+      animation: check-appear 0.3s 0.05s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+    @keyframes check-appear {
+      to { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    /* Particles burst on copy */
+    .copy-particle {
+      position: absolute;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--green);
+      pointer-events: none;
+      animation: particle-fly 0.5s ease-out forwards;
+    }
+    @keyframes particle-fly {
+      0%   { transform: translate(0,0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.75rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: var(--surface);
+      border: 1px solid var(--green-border);
+      color: var(--green);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    #toast.show {
+      animation: toast-in 0.35s cubic-bezier(0.16,1,0.3,1) forwards,
+                 toast-out 0.3s ease-in 1.8s forwards;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.9); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1);   }
+    }
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1);   }
+      to   { opacity: 0; transform: translateX(-50%) translateY(8px)  scale(0.95); }
+    }
+    .sheets-box code {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.72rem;
+      color: var(--accent);
+      word-break: break-all;
+      line-height: 1.5;
+    }
+    .latest-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.1rem 0.45rem;
+      border-radius: 20px;
+      margin-left: 0.3rem;
+      vertical-align: middle;
+    }
+    .latest-badge.fresh  { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
+    .latest-badge.stale  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border); }
+    .latest-badge.medium { background: rgba(251,191,36,0.12); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+    .duration-chip {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.15rem 0.45rem;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ticker-bar" id="tickerBar">
+    <div class="ticker-track" id="tickerTrack">
+      <span class="ticker-loading" id="tickerLoading">Loading market data…</span>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      CBS Index Proxy
+    </div>
+    <div class="theme-toggle" onclick="toggleTheme()">
+      <span class="theme-toggle-label" id="themeLabel">Light</span>
+      <div class="toggle-track" id="toggleTrack">
+        <div class="toggle-thumb"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="badge">🇮🇱 Israeli CBS</div>
+      <h1>Index Calculator</h1>
+      <p>CPI &amp; Construction index-linked amount adjustment</p>
+    </div>
+
+    <div class="form-grid">
+      <div class="field full">
+        <label for="amount">Amount <span class="opt">(₪)</span></label>
+        <div class="input-prefix-wrap">
+          <span class="prefix">₪</span>
+          <input type="text" id="amount" placeholder="e.g. 400,000" inputmode="numeric" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="from">From</label>
+        <input type="month" id="from" />
+      </div>
+
+      <div class="field">
+        <label for="to">To <span class="opt">(optional)</span></label>
+        <input type="month" id="to" />
+      </div>
+
+      <div class="field full">
+        <label for="index">Index Type <span class="opt" id="latestBadge"></span></label>
+        <div class="select-wrap">
+          <select id="index" onchange="updateLatestBadge()">
+            <option value="cpi">CPI — Consumer Price Index</option>
+            <option value="construction">Construction Index</option>
+            <option value="housing">Housing Price Index</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="btn-wrap">
+      <button class="btn" id="calcBtn" onclick="calculate(event)">
+        <div class="spinner"></div>
+        <span class="btn-text">Calculate</span>
+      </button>
+      <div class="btn-progress" id="btnProgress">
+        <div class="btn-progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="result-hero" id="resultHero">
+        <div class="result-hero-label" id="resultLabel">Result</div>
+        <div class="result-hero-value" id="resultMain"></div>
+        <div class="result-hero-sub" id="resultSub"></div>
+      </div>
+      <div class="result-body" id="resultBody">
+        <div class="stat-grid" id="statGrid"></div>
+        <div class="period-row" id="periodRow"></div>
+        <div class="sheets-box" id="sheetsBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SECRET = ${JSON.stringify(secret)};
+
+    // ── Theme ──
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      const next = isDark ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      document.getElementById('toggleTrack').classList.toggle('on', isDark);
+      document.getElementById('themeLabel').textContent = isDark ? 'Dark' : 'Light';
+      localStorage.setItem('theme', next);
+    }
+
+    // Init theme: dark by default, respect saved preference
+    (function() {
+      const saved = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', saved);
+      const isDark = saved === 'dark';
+      document.getElementById('toggleTrack').classList.toggle('on', !isDark);
+      document.getElementById('themeLabel').textContent = isDark ? 'Light' : 'Dark';
+    })();
+
+    // ── Ripple ──
+    function spawnRipple(btn, e) {
+      const rect   = btn.getBoundingClientRect();
+      const size   = Math.max(rect.width, rect.height) * 1.5;
+      const x      = (e.clientX - rect.left) - size / 2;
+      const y      = (e.clientY - rect.top)  - size / 2;
+      const ripple = document.createElement('span');
+      ripple.className = 'ripple';
+      ripple.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + x + 'px;top:' + y + 'px;';
+      btn.appendChild(ripple);
+      ripple.addEventListener('animationend', () => ripple.remove());
+    }
+
+    // ── Calculate ──
+    async function calculate(e) {
+      const btn      = document.getElementById('calcBtn');
+      const progress = document.getElementById('btnProgress');
+      const resultEl = document.getElementById('result');
+
+      if (e) spawnRipple(btn, e);
+
+      const amount = document.getElementById('amount').value.replace(/,/g, '').trim();
+      const from   = document.getElementById('from').value.trim();
+      const to     = document.getElementById('to').value.trim();
+      const index  = document.getElementById('index').value;
+
+      if (!amount || !from) {
+        showError('Please fill in Amount and From period.');
+        return;
+      }
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+      progress.classList.add('active');
+      resultEl.style.display = 'none';
+      saveInputs();
+
+      const params = new URLSearchParams({ amount, from, index, format: 'json', secret: SECRET });
+      if (to) params.set('to', to);
+
+      try {
+        const res  = await fetch('/calc?' + params.toString());
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(data.error || 'Calculation failed.');
+          return;
+        }
+
+        showResult(data);
+      } catch (e) {
+        showError('Network error: ' + e.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        progress.classList.remove('active');
+      }
+    }
+
+    function showError(msg) {
+      const resultEl = document.getElementById('result');
+      resultEl.className = 'result error';
+      resultEl.style.display = 'block';
+      document.getElementById('resultLabel').textContent = 'Error';
+      document.getElementById('resultMain').textContent = msg;
+      document.getElementById('resultSub').textContent = '';
+      document.getElementById('statGrid').innerHTML = '';
+      document.getElementById('periodRow').innerHTML = '';
+      document.getElementById('sheetsBox').innerHTML = '';
+    }
+
+    // ── Animated counter ──
+    function animateCount(el, target, prefix, suffix, duration) {
+      const start     = performance.now();
+      const startVal  = 0;
+      const isNeg     = target < 0;
+      const abs       = Math.abs(target);
+      function step(now) {
+        const t        = Math.min((now - start) / duration, 1);
+        const eased    = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        const current  = Math.round(startVal + eased * abs);
+        el.textContent = prefix + (isNeg ? '-' : '') + current.toLocaleString('en-US') + suffix;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function showResult(data) {
+      const resultEl  = document.getElementById('result');
+      const pct       = data.percentage;
+      const sign      = pct >= 0 ? '+' : '';
+      const pctClass  = pct >= 0 ? 'positive' : 'negative';
+
+      resultEl.className = 'result';
+      resultEl.style.display = 'block';
+      // Trigger stagger animation
+      void resultEl.offsetWidth;
+      resultEl.classList.add('animating');
+      resultEl.addEventListener('animationend', () => resultEl.classList.remove('animating'), { once: true });
+
+      document.getElementById('resultLabel').textContent = 'Indexed Amount';
+      document.getElementById('resultSub').textContent   =
+        sign + pct.toFixed(2) + '% change  ·  Difference: ' + fmt(data.difference);
+
+      // Animate main hero number
+      const heroEl = document.getElementById('resultMain');
+      animateCount(heroEl, data.indexedAmount, '₪', '', 700);
+
+      document.getElementById('statGrid').innerHTML = \`
+        <div class="stat">
+          <div class="stat-label">Original</div>
+          <div class="stat-value" id="sv-orig"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Indexed</div>
+          <div class="stat-value" id="sv-indexed"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Change</div>
+          <div class="stat-value \${pctClass}" id="sv-pct"></div>
+        </div>
+      \`;
+      // Staggered counter animations for stats
+      setTimeout(() => animateCount(document.getElementById('sv-orig'),    data.originalAmount, '₪', '', 500), 150);
+      setTimeout(() => animateCount(document.getElementById('sv-indexed'), data.indexedAmount,  '₪', '', 500), 220);
+      setTimeout(() => {
+        const el = document.getElementById('sv-pct');
+        const abs = Math.abs(pct);
+        const start = performance.now();
+        function stepPct(now) {
+          const t = Math.min((now - start) / 400, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          el.textContent = sign + (eased * abs).toFixed(2) + '%';
+          if (t < 1) requestAnimationFrame(stepPct);
+        }
+        requestAnimationFrame(stepPct);
+      }, 290);
+
+      document.getElementById('periodRow').innerHTML = \`
+        <span class="period-chip">\${data.fromPeriod}</span>
+        <span class="period-arrow">→</span>
+        <span class="period-chip">\${data.toPeriod}</span>
+        <span class="duration-chip">\${periodDiff(data.fromPeriod, data.toPeriod)}</span>
+        <span style="margin-left:auto;font-size:0.75rem;color:var(--text-muted);">\${document.getElementById('index').value.toUpperCase()}</span>
+      \`;
+
+      const base    = window.location.origin;
+      const formula = '=IMPORTDATA(CONCATENATE("' + base + '/calc?amount=",INT(H3),"&from=",TEXT(M2,"YYYY-MM"),"&secret=YOUR_SECRET"))';
+      const box = document.getElementById('sheetsBox');
+      box.innerHTML = \`
+        <div class="sheets-box-header">
+          <span class="sheets-box-label">Google Sheets formula</span>
+          <button class="copy-btn" id="copyBtn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <code id="formulaCode"></code>
+      \`;
+      document.getElementById('formulaCode').textContent = formula;
+      document.getElementById('copyBtn').addEventListener('click', function() {
+        copyFormula(this, formula);
+      });
+    }
+
+    function fmt(n) {
+      return '\\u20aa' + Math.round(n).toLocaleString('en-US');
+    }
+
+    function periodDiff(from, to) {
+      const [fy, fm] = from.split('-').map(Number);
+      const [ty, tm] = to.split('-').map(Number);
+      const total    = (ty - fy) * 12 + (tm - fm);
+      const years    = Math.floor(total / 12);
+      const months   = total % 12;
+      const parts    = [];
+      if (years  > 0) parts.push(years  + (years  === 1 ? ' yr'  : ' yrs'));
+      if (months > 0) parts.push(months + (months === 1 ? ' mo'  : ' mos'));
+      return parts.length ? parts.join(' ') : '0 mos';
+    }
+
+    const COPY_ICON  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+    const CHECK_ICON = '<span class="copy-check">&#10003;</span> Copied!';
+
+    function spawnParticles(btn) {
+      const count  = 6;
+      const rect   = btn.getBoundingClientRect();
+      const cx     = rect.width / 2;
+      const cy     = rect.height / 2;
+      for (let i = 0; i < count; i++) {
+        const angle  = (i / count) * 2 * Math.PI;
+        const dist   = 18 + Math.random() * 10;
+        const p      = document.createElement('span');
+        p.className  = 'copy-particle';
+        p.style.left = cx + 'px';
+        p.style.top  = cy + 'px';
+        p.style.setProperty('--tx', Math.round(Math.cos(angle) * dist) + 'px');
+        p.style.setProperty('--ty', Math.round(Math.sin(angle) * dist) + 'px');
+        btn.appendChild(p);
+        p.addEventListener('animationend', () => p.remove());
+      }
+    }
+
+    let toastTimer = null;
+    function showToast() {
+      const t = document.getElementById('toast');
+      if (toastTimer) clearTimeout(toastTimer);
+      t.classList.remove('show');
+      void t.offsetWidth;
+      t.classList.add('show');
+      // Remove class after full animation (in 0.35s + hold + out 0.3s = ~2.45s)
+      toastTimer = setTimeout(() => { t.classList.remove('show'); toastTimer = null; }, 2450);
+    }
+
+    function doFeedback(btn) {
+      btn.classList.add('copied');
+      btn.innerHTML = CHECK_ICON;
+      spawnParticles(btn);
+      showToast();
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = COPY_ICON;
+      }, 2000);
+    }
+
+    function copyFormula(btn, text) {
+      // Try modern clipboard API, fall back to execCommand
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => doFeedback(btn))
+          .catch(() => legacyCopy(btn, text));
+      } else {
+        legacyCopy(btn, text);
+      }
+    }
+
+    function legacyCopy(btn, text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); doFeedback(btn); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+
+    // ── Persist inputs ──
+    const FIELDS = ['amount', 'from', 'to', 'index'];
+
+    function saveInputs() {
+      const saved = {};
+      FIELDS.forEach(id => {
+        const val = document.getElementById(id).value;
+        saved[id] = id === 'amount' ? val.replace(/,/g, '') : val;
+      });
+      localStorage.setItem('calc-inputs', JSON.stringify(saved));
+    }
+
+    function restoreInputs() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('calc-inputs') || '{}');
+        FIELDS.forEach(id => {
+          if (saved[id] !== undefined) {
+            const el = document.getElementById(id);
+            el.value = saved[id];
+            if (id === 'amount') formatAmountDisplay(el);
+          }
+        });
+      } catch (_) {}
+    }
+
+    restoreInputs();
+
+    // ── Amount formatter ──
+    // Allow free typing while focused; format with commas on blur.
+    function formatAmountDisplay(el) {
+      const digits = el.value.replace(/[^0-9]/g, '');
+      el.value = digits ? parseInt(digits, 10).toLocaleString('en-US') : '';
+    }
+
+    function stripAmountCommas(el) {
+      el.value = el.value.replace(/,/g, '');
+    }
+
+    const amountEl = document.getElementById('amount');
+    amountEl.addEventListener('focus', function() { stripAmountCommas(this); });
+    amountEl.addEventListener('blur',  function() { formatAmountDisplay(this); });
+
+    // ── Latest available periods ──
+    let latestPeriods = {};
+
+    async function fetchLatest() {
+      try {
+        const data = await fetch('/latest').then(r => r.json());
+        latestPeriods = data;
+        updateLatestBadge();
+      } catch (_) {}
+    }
+
+    function updateLatestBadge() {
+      const index   = document.getElementById('index').value;
+      const period  = latestPeriods[index];
+      const badge   = document.getElementById('latestBadge');
+      if (!period) { badge.innerHTML = ''; return; }
+
+      const [y, m]    = period.split('-').map(Number);
+      const now       = new Date();
+      const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
+      const cls       = monthsAgo <= 2 ? 'fresh' : monthsAgo <= 4 ? 'medium' : 'stale';
+      const ago       = monthsAgo === 0 ? 'this month' : monthsAgo === 1 ? '1 mo ago' : monthsAgo + ' mos ago';
+      badge.innerHTML = \`<span class="latest-badge \${cls}">CBS latest: \${period} · \${ago}</span>\`;
+    }
+
+    fetchLatest();
+
+    // ── Ticker ──
+    const TICKER_ITEMS = [
+      { label: 'USD/ILS', type: 'fiat'   },
+      { label: 'EUR/ILS', type: 'fiat'   },
+      { label: 'GBP/ILS', type: 'fiat'   },
+      { label: 'BTC/USD', type: 'crypto' },
+      { label: 'ETH/USD', type: 'crypto' },
+      { label: 'GOLD',    type: 'metal'  },
+      { label: 'SILVER',  type: 'metal'  },
+      { label: 'VIX',     type: 'index'  },
+      { label: 'S&P 500', type: 'index'  },
+      { label: 'NASDAQ',  type: 'index'  },
+      { label: 'RUSSELL', type: 'index'  },
+      { label: 'MSCI',    type: 'index'  },
+    ];
+
+    let prevRates = {};
+
+    async function fetchTicker() {
+      const [fiatRes, cryptoRes, marketRes] = await Promise.allSettled([
+        fetch('https://api.frankfurter.app/latest?from=ILS&to=USD,EUR,GBP').then(r => r.json()),
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true').then(r => r.json()),
+        fetch('/market').then(r => r.json()),
+      ]);
+
+      const rates = {};
+
+      // Fiat: frankfurter returns ILS→X, invert to get X→ILS
+      if (fiatRes.status === 'fulfilled') {
+        for (const [sym, val] of Object.entries(fiatRes.value.rates || {})) {
+          rates[sym + '/ILS'] = { value: (1 / val).toFixed(4) };
+        }
+      }
+
+      // Crypto
+      if (cryptoRes.status === 'fulfilled') {
+        for (const [coin, data] of Object.entries(cryptoRes.value)) {
+          const label = coin === 'bitcoin' ? 'BTC' : 'ETH';
+          for (const [vs, val] of Object.entries(data)) {
+            if (vs.endsWith('_24h_change')) continue;
+            const key = label + '/' + vs.toUpperCase();
+            const change = data[vs + '_24h_change'];
+            rates[key] = {
+              value: val > 1000 ? val.toLocaleString('en-US', { maximumFractionDigits: 0 }) : val.toFixed(2),
+              change: change != null ? +change.toFixed(2) : null,
+            };
+          }
+        }
+      }
+
+      // Metals, VIX, indices — proxied through /market (server-side fetch avoids CORS)
+      if (marketRes.status === 'fulfilled') {
+        const m = marketRes.value;
+        if (m.gold)    rates['GOLD']    = { value: '$' + Math.round(m.gold.price).toLocaleString('en-US'), change: m.gold.change };
+        if (m.silver)  rates['SILVER']  = { value: '$' + m.silver.price.toFixed(2), change: m.silver.change };
+        if (m.vix)     rates['VIX']     = { value: m.vix.price.toFixed(2), change: m.vix.change };
+        if (m.sp500)   rates['S&P 500'] = { value: Math.round(m.sp500.price).toLocaleString('en-US'), change: m.sp500.change };
+        if (m.nasdaq)  rates['NASDAQ']  = { value: Math.round(m.nasdaq.price).toLocaleString('en-US'), change: m.nasdaq.change };
+        if (m.russell) rates['RUSSELL'] = { value: m.russell.price.toFixed(2), change: m.russell.change };
+        if (m.msci)    rates['MSCI']    = { value: m.msci.price.toFixed(2), change: m.msci.change };
+      }
+
+      if (Object.keys(rates).length) {
+        renderTicker(rates);
+        prevRates = rates;
+      }
+    }
+
+    function renderTicker(rates) {
+      const items = TICKER_ITEMS.map(t => {
+        const r = rates[t.label];
+        if (!r) return '';
+        const prev = prevRates[t.label];
+        const dir = prev && r.value !== prev.value ? (parseFloat(r.value) > parseFloat(prev.value) ? 'up' : 'down') : '';
+        const changeHtml = r.change != null
+          ? \`<span class="ticker-change \${r.change >= 0 ? 'up' : 'down'}">\${r.change >= 0 ? '▲' : '▼'}\${Math.abs(r.change)}%</span>\`
+          : (dir ? \`<span class="ticker-change \${dir}">\${dir === 'up' ? '▲' : '▼'}</span>\` : '');
+        return \`<span class="ticker-item"><span class="ticker-label">\${t.label}</span><span class="ticker-value">\${r.value}</span>\${changeHtml}</span>\`;
+      }).join('');
+
+      if (!items) return;
+      // Duplicate for seamless loop
+      const track = document.getElementById('tickerTrack');
+      track.innerHTML = items + items;
+    }
+
+    fetchTicker();
+    setInterval(fetchTicker, 60_000);
+
+    // Allow Enter key to submit
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') calculate();
+    });
+  </script>
+  <div id="toast">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    Formula copied to clipboard
+  </div>
+</body>
+</html>`;
+}
+
+export function uiController(c: Context<{ Bindings: Env }>): Response {
+  return new Response(buildHtml(c.env.SECRET_KEY ?? ''), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
