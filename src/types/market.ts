@@ -1,4 +1,4 @@
-export type MarketKey = 'tlv' | 'london' | 'wallstreet' | 'swiss';
+export type MarketKey = 'tase' | 'lse' | 'nyse' | 'six';
 
 export interface MarketConfig {
   key: MarketKey;
@@ -23,10 +23,10 @@ export interface MarketStatus {
 }
 
 export interface MarketStatusResponse {
-  tlv: MarketStatus;
-  london: MarketStatus;
-  wallstreet: MarketStatus;
-  swiss: MarketStatus;
+  tase: MarketStatus;
+  lse: MarketStatus;
+  nyse: MarketStatus;
+  six: MarketStatus;
   asOf: string; // ISO timestamp
 }
 

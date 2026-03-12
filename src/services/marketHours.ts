@@ -18,11 +18,11 @@ import {
 
 export type { MarketKey, MarketStatus, MarketStatusResponse };
 
-export const MARKET_KEYS: MarketKey[] = ['tlv', 'london', 'wallstreet', 'swiss'];
+export const MARKET_KEYS: MarketKey[] = ['tase', 'lse', 'nyse', 'six'];
 
 export const MARKETS: Record<MarketKey, MarketConfig> = {
-  tlv: {
-    key: 'tlv',
+  tase: {
+    key: 'tase',
     name: 'Tel Aviv Stock Exchange',
     flag: '🇮🇱',
     timezone: 'Asia/Jerusalem',
@@ -33,8 +33,8 @@ export const MARKETS: Record<MarketKey, MarketConfig> = {
     closeHour: 17,
     closeMinute: 25,
   },
-  london: {
-    key: 'london',
+  lse: {
+    key: 'lse',
     name: 'London Stock Exchange',
     flag: '🇬🇧',
     timezone: 'Europe/London',
@@ -45,8 +45,8 @@ export const MARKETS: Record<MarketKey, MarketConfig> = {
     closeHour: 16,
     closeMinute: 30,
   },
-  wallstreet: {
-    key: 'wallstreet',
+  nyse: {
+    key: 'nyse',
     name: 'New York Stock Exchange',
     flag: '🇺🇸',
     timezone: 'America/New_York',
@@ -57,8 +57,8 @@ export const MARKETS: Record<MarketKey, MarketConfig> = {
     closeHour: 16,
     closeMinute: 0,
   },
-  swiss: {
-    key: 'swiss',
+  six: {
+    key: 'six',
     name: 'SIX Swiss Exchange',
     flag: '🇨🇭',
     timezone: 'Europe/Zurich',
@@ -183,10 +183,10 @@ export async function getAllMarketStatuses(now: Date): Promise<MarketStatusRespo
     MARKET_KEYS.map((k): Promise<MarketStatus> => getMarketStatus(MARKETS[k], now)),
   );
   return {
-    tlv: results[0] as MarketStatus,
-    london: results[1] as MarketStatus,
-    wallstreet: results[2] as MarketStatus,
-    swiss: results[3] as MarketStatus,
+    tase: results[0] as MarketStatus,
+    lse: results[1] as MarketStatus,
+    nyse: results[2] as MarketStatus,
+    six: results[3] as MarketStatus,
     asOf: now.toISOString(),
   };
 }

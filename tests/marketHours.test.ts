@@ -29,35 +29,35 @@ describe('GET /market-status (no params)', () => {
     const res = await app.fetch(makeRequest('/market-status'), env);
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data).toHaveProperty('tlv');
-    expect(data).toHaveProperty('london');
-    expect(data).toHaveProperty('wallstreet');
-    expect(data).toHaveProperty('swiss');
+    expect(data).toHaveProperty('tase');
+    expect(data).toHaveProperty('lse');
+    expect(data).toHaveProperty('nyse');
+    expect(data).toHaveProperty('six');
     expect(data).toHaveProperty('asOf', expect.any(String));
   });
 });
 
-describe('GET /market-status?market=tlv', () => {
+describe('GET /market-status?market=tase', () => {
   it('returns 200 with single market JSON', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify([]), { status: 200 }),
     );
-    const res = await app.fetch(makeRequest('/market-status?market=tlv'), env);
+    const res = await app.fetch(makeRequest('/market-status?market=tase'), env);
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data).toHaveProperty('key', 'tlv');
+    expect(data).toHaveProperty('key', 'tase');
     expect(data).toHaveProperty('open');
     expect(data).toHaveProperty('localTime');
     expect(data).toHaveProperty('flag');
   });
 });
 
-describe('GET /market-status?market=tlv&format=text', () => {
+describe('GET /market-status?market=tase&format=text', () => {
   it('returns 200 text/plain with "true" or "false"', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify([]), { status: 200 }),
     );
-    const res = await app.fetch(makeRequest('/market-status?market=tlv&format=text'), env);
+    const res = await app.fetch(makeRequest('/market-status?market=tase&format=text'), env);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/plain');
     const body = await res.text();
@@ -74,9 +74,9 @@ describe('GET /market-status?market=invalid', () => {
   });
 });
 
-// ── TLV trading window ────────────────────────────────────────────────────────
+// ── TASE trading window ────────────────────────────────────────────────────────
 
-describe('TLV trading window', () => {
+describe('TASE trading window', () => {
   // TASE moved to Mon–Fri on 2023-09-10. 2024-03-11 is a Monday, UTC+2.
   it('open: Monday 10:00 Jerusalem', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -84,28 +84,28 @@ describe('TLV trading window', () => {
     );
     // Monday 08:00 UTC = 10:00 Jerusalem (UTC+2)
     const now = new Date('2024-03-11T08:00:00Z');
-    const status = await getMarketStatus(MARKETS.tlv, now);
+    const status = await getMarketStatus(MARKETS.tase, now);
     expect(status.open).toBe(true);
   });
 
   it('closed: Sunday (day 0)', async () => {
     // 2024-03-10 is a Sunday — no longer a trading day since Sep 2023.
     const now = new Date('2024-03-10T08:00:00Z');
-    const status = await getMarketStatus(MARKETS.tlv, now);
+    const status = await getMarketStatus(MARKETS.tase, now);
     expect(status.open).toBe(false);
   });
 
   it('closed: before 09:59 local', async () => {
     // Monday 07:00 UTC = 09:00 Jerusalem — before 09:59 open
     const now = new Date('2024-03-11T07:00:00Z');
-    const status = await getMarketStatus(MARKETS.tlv, now);
+    const status = await getMarketStatus(MARKETS.tase, now);
     expect(status.open).toBe(false);
   });
 
   it('closed: after 17:25 local', async () => {
     // Monday 16:00 UTC = 18:00 Jerusalem — after 17:25 close
     const now = new Date('2024-03-11T16:00:00Z');
-    const status = await getMarketStatus(MARKETS.tlv, now);
+    const status = await getMarketStatus(MARKETS.tase, now);
     expect(status.open).toBe(false);
   });
 });
@@ -119,7 +119,7 @@ describe('NYSE DST handling', () => {
       new Response(JSON.stringify([]), { status: 200 }),
     );
     const now = new Date('2024-07-01T13:30:00Z');
-    const status = await getMarketStatus(MARKETS.wallstreet, now);
+    const status = await getMarketStatus(MARKETS.nyse, now);
     expect(status.open).toBe(true);
   });
 
@@ -129,7 +129,7 @@ describe('NYSE DST handling', () => {
       new Response(JSON.stringify([]), { status: 200 }),
     );
     const now = new Date('2024-01-08T14:30:00Z');
-    const status = await getMarketStatus(MARKETS.wallstreet, now);
+    const status = await getMarketStatus(MARKETS.nyse, now);
     expect(status.open).toBe(true);
   });
 });
@@ -143,7 +143,7 @@ describe('Holiday detection', () => {
       new Response(JSON.stringify([{ date: '2024-07-04' }]), { status: 200 }),
     );
     const now = new Date('2024-07-04T13:30:00Z');
-    const status = await getMarketStatus(MARKETS.wallstreet, now);
+    const status = await getMarketStatus(MARKETS.nyse, now);
     expect(status.open).toBe(false);
   });
 });
@@ -154,14 +154,14 @@ describe('Holiday graceful degradation', () => {
   it('returns open:true when Nager returns 500', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Server Error', { status: 500 }));
     const now = new Date('2024-07-01T13:30:00Z'); // Monday, within NYSE window
-    const status = await getMarketStatus(MARKETS.wallstreet, now);
+    const status = await getMarketStatus(MARKETS.nyse, now);
     expect(status.open).toBe(true);
   });
 
   it('returns open:true when fetch throws (network/timeout)', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('AbortError'));
     const now = new Date('2024-07-01T13:30:00Z');
-    const status = await getMarketStatus(MARKETS.wallstreet, now);
+    const status = await getMarketStatus(MARKETS.nyse, now);
     expect(status.open).toBe(true);
   });
 });
@@ -175,8 +175,8 @@ describe('Holiday cache', () => {
       .mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
     const now1 = new Date('2024-07-01T13:30:00Z');
     const now2 = new Date('2024-07-02T13:30:00Z'); // next day, same year+country
-    await getMarketStatus(MARKETS.wallstreet, now1);
-    await getMarketStatus(MARKETS.wallstreet, now2);
+    await getMarketStatus(MARKETS.nyse, now1);
+    await getMarketStatus(MARKETS.nyse, now2);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });
@@ -190,10 +190,10 @@ describe('getAllMarketStatuses', () => {
     );
     const now = new Date('2024-07-01T13:30:00Z');
     const result = await getAllMarketStatuses(now);
-    expect(result.tlv).toBeDefined();
-    expect(result.london).toBeDefined();
-    expect(result.wallstreet).toBeDefined();
-    expect(result.swiss).toBeDefined();
+    expect(result.tase).toBeDefined();
+    expect(result.lse).toBeDefined();
+    expect(result.nyse).toBeDefined();
+    expect(result.six).toBeDefined();
     expect(result.asOf).toBe(now.toISOString());
   });
 });
