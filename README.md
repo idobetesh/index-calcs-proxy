@@ -253,10 +253,16 @@ Returns live prices for metals, volatility, and equity indices (server-side prox
 
 ### `GET /health`
 
-Health check. No auth required.
+Health check. No auth required. Returns plain text for Google Sheets `IMPORTDATA` compatibility.
 
-```json
-{ "status": "ok", "version": "1.0.0" }
+```
+ok
+```
+
+**Google Sheets example:**
+
+```
+=IF(IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/health")="ok","✅ Up","❌ Down")
 ```
 
 ---

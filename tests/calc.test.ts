@@ -25,9 +25,8 @@ describe('GET /health', () => {
     const req = makeRequest('/health');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveProperty('status', 'ok');
-    expect(body).toHaveProperty('version', '1.0.0');
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(await res.text()).toBe('ok');
   });
 });
 
