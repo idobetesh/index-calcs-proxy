@@ -1,10 +1,12 @@
 # index-calcs-proxy
 
 [![Deploy](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy.yml/badge.svg?branch=master)](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy.yml)
+[![Deploy Apps Script](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy-gs.yml/badge.svg?branch=master)](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy-gs.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Hono](https://img.shields.io/badge/Hono-4.4-orange?logo=hono&logoColor=white)](https://hono.dev/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![Vitest](https://img.shields.io/badge/tested_with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Google Apps Script](https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white)](gs/ONBOARDING.md)
 
 A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Statistics (CBS) calculator API and returns plain-text results consumable directly by Google Sheets `IMPORTDATA`.
 
@@ -268,6 +270,23 @@ ok
 ---
 
 ## Google Sheets integration
+
+### Recommended: Google Apps Script
+
+The `gs/` folder contains a [clasp](https://github.com/google/clasp)-based Apps Script integration that is more reliable than `IMPORTDATA` — no caching issues, no Cloudflare blocking, handles JSON natively.
+
+```
+=WORKER("health")                                    → ok
+=MARKET_OPEN("nyse")                                 → TRUE / FALSE
+=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")          → indexed amount
+=CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "cpi")         → decimal fraction
+```
+
+See [gs/ONBOARDING.md](gs/ONBOARDING.md) for setup instructions.
+
+---
+
+### Alternative: IMPORTDATA
 
 The single-formula approach using `LET` (no helper cells needed):
 
