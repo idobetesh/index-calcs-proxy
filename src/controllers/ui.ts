@@ -1504,17 +1504,17 @@ function buildHtml(secret: string): string {
 
     // ── Market Status ──
     const MARKET_TIMEZONES = {
-      tlv:        'Asia/Jerusalem',
-      london:     'Europe/London',
-      wallstreet: 'America/New_York',
-      swiss:      'Europe/Zurich',
+      tase: 'Asia/Jerusalem',
+      lse:  'Europe/London',
+      nyse: 'America/New_York',
+      six:  'Europe/Zurich',
     };
 
     const MARKET_HOURS = {
-      tlv:        { openH:9,  openM:59, closeH:17, closeM:25, tradingDays:[1,2,3,4,5] },
-      london:     { openH:8,  openM:0,  closeH:16, closeM:30, tradingDays:[1,2,3,4,5] },
-      wallstreet: { openH:9,  openM:30, closeH:16, closeM:0,  tradingDays:[1,2,3,4,5] },
-      swiss:      { openH:9,  openM:0,  closeH:17, closeM:30, tradingDays:[1,2,3,4,5] },
+      tase: { openH:9,  openM:59, closeH:17, closeM:25, tradingDays:[1,2,3,4,5] },
+      lse:  { openH:8,  openM:0,  closeH:16, closeM:30, tradingDays:[1,2,3,4,5] },
+      nyse: { openH:9,  openM:30, closeH:16, closeM:0,  tradingDays:[1,2,3,4,5] },
+      six:  { openH:9,  openM:0,  closeH:17, closeM:30, tradingDays:[1,2,3,4,5] },
     };
 
     const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -1575,17 +1575,17 @@ function buildHtml(secret: string): string {
     }
 
     const MARKET_URLS = {
-      tlv:        'https://www.tase.co.il',
-      london:     'https://www.londonstockexchange.com',
-      wallstreet: 'https://www.nyse.com',
-      swiss:      'https://www.six-group.com/en/products-services/the-swiss-stock-exchange.html',
+      tase: 'https://www.tase.co.il',
+      lse:  'https://www.londonstockexchange.com',
+      nyse: 'https://www.nyse.com',
+      six:  'https://www.six-group.com/en/products-services/the-swiss-stock-exchange.html',
     };
 
     function renderMarketStatus(data) {
       lastMarketData = data;
       const grid = document.getElementById('marketStatusGrid');
       if (!grid) return;
-      const keys = ['tlv', 'london', 'wallstreet', 'swiss'];
+      const keys = ['tase', 'lse', 'nyse', 'six'];
       grid.innerHTML = keys.map(function(key) {
         const m = data[key];
         if (!m) return '';

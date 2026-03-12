@@ -161,42 +161,42 @@ Returns open/closed status for major stock exchanges. Holiday-aware via [Nager.D
 
 **Query parameters**
 
-| Parameter | Required | Description                                                   |
-| --------- | -------- | ------------------------------------------------------------- |
-| `market`  | No       | `tlv`, `london`, `wallstreet`, or `swiss`. Omit for all four. |
-| `format`  | No       | `json` (default) or `text` (only valid with `market`)         |
-| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header)             |
+| Parameter | Required | Description                                           |
+| --------- | -------- | ----------------------------------------------------- |
+| `market`  | No       | `tase`, `lse`, `nyse`, or `six`. Omit for all four.   |
+| `format`  | No       | `json` (default) or `text` (only valid with `market`) |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header)     |
 
 **All markets response** (no `market` param):
 
 ```json
 {
-  "tlv": {
-    "key": "tlv",
+  "tase": {
+    "key": "tase",
     "name": "Tel Aviv Stock Exchange",
     "open": true,
     "localTime": "14:30",
     "timezone": "Asia/Jerusalem",
     "flag": "🇮🇱"
   },
-  "london": {
-    "key": "london",
+  "lse": {
+    "key": "lse",
     "name": "London Stock Exchange",
     "open": true,
     "localTime": "12:30",
     "timezone": "Europe/London",
     "flag": "🇬🇧"
   },
-  "wallstreet": {
-    "key": "wallstreet",
+  "nyse": {
+    "key": "nyse",
     "name": "New York Stock Exchange",
     "open": false,
     "localTime": "07:30",
     "timezone": "America/New_York",
     "flag": "🇺🇸"
   },
-  "swiss": {
-    "key": "swiss",
+  "six": {
+    "key": "six",
     "name": "SIX Swiss Exchange",
     "open": true,
     "localTime": "13:30",
@@ -207,7 +207,7 @@ Returns open/closed status for major stock exchanges. Holiday-aware via [Nager.D
 }
 ```
 
-**Single market text response** (`market=wallstreet&format=text`):
+**Single market text response** (`market=nyse&format=text`):
 
 ```
 false
@@ -216,7 +216,7 @@ false
 **Google Sheets example:**
 
 ```
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/market-status?market=wallstreet&format=text&secret=YOUR_SECRET")
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/market-status?market=nyse&format=text&secret=YOUR_SECRET")
 ```
 
 **Known limitations:** US early-close days (Thanksgiving eve, Christmas eve) and TASE Erev Chag early-close are not modeled. After-hours / pre-market sessions are not modeled.
