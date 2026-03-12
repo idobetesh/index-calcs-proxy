@@ -1,25 +1,23 @@
 import { Context } from 'hono';
-import { type MarketKey } from '../types/market.js';
-import {
-  getAllMarketStatuses,
-  getMarketStatus,
-  MARKET_KEYS,
-  MARKETS,
-} from '../services/marketHours.js';
+import { getAllMarketStatuses, getMarketStatus, MARKETS } from '../services/marketHours.js';
+import { marketStatusQuerySchema } from '../schemas/index.js';
 
 export async function marketStatusController(c: Context): Promise<Response> {
-  const marketParam = c.req.query('market');
-  const format = c.req.query('format') === 'text' ? 'text' : 'json';
+  const parsed = marketStatusQuerySchema.safeParse({
+    market: c.req.query('market'),
+    format: c.req.query('format'),
+  });
+
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Invalid request';
+    return c.json({ error: message }, 400);
+  }
+
+  const { market, format } = parsed.data;
   const now = new Date();
 
-  if (marketParam !== undefined) {
-    if (!MARKET_KEYS.includes(marketParam as MarketKey)) {
-      return c.json(
-        { error: `Invalid market "${marketParam}". Valid: ${MARKET_KEYS.join(', ')}` },
-        400,
-      );
-    }
-    const status = await getMarketStatus(MARKETS[marketParam as MarketKey], now);
+  if (market !== undefined) {
+    const status = await getMarketStatus(MARKETS[market], now);
     if (format === 'text') {
       return new Response(String(status.open), {
         headers: {

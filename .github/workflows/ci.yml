@@ -21,4 +21,26 @@ jobs:
 
       - run: npm run lint
 
-      - run: npm test
+      - run: npm run test:coverage
+
+      - name: Extract coverage percentage
+        id: coverage
+        run: |
+          PCT=$(node -e "const s=require('./coverage/coverage-summary.json');process.stdout.write(String(Math.round(s.total.lines.pct)))")
+          echo "pct=$PCT" >> "$GITHUB_OUTPUT"
+          if [ "$PCT" -ge 90 ]; then COLOR="brightgreen"
+          elif [ "$PCT" -ge 75 ]; then COLOR="green"
+          elif [ "$PCT" -ge 60 ]; then COLOR="yellow"
+          else COLOR="red"
+          fi
+          echo "color=$COLOR" >> "$GITHUB_OUTPUT"
+
+      - name: Update coverage badge
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: index-calcs-proxy-coverage.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.pct }}%
+          color: ${{ steps.coverage.outputs.color }}

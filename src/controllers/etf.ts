@@ -1,8 +1,7 @@
 import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { fetchEtfQuote } from '../services/etf.js';
-
-const VALID_ID = /^\d{6,10}$/;
+import { etfQuerySchema } from '../schemas/index.js';
 
 /**
  * GET /etf?id=<security_number>[&format=json|text]
@@ -14,12 +13,17 @@ const VALID_ID = /^\d{6,10}$/;
  * Text response: plain number (e.g. "576.15") — suitable for IMPORTDATA in Google Sheets.
  */
 export async function etfController(c: Context<{ Bindings: Env }>): Promise<Response> {
-  const id = c.req.query('id') ?? '';
-  if (!VALID_ID.test(id)) {
-    return c.json({ error: 'Missing or invalid "id". Must be a 6–10 digit security number.' }, 400);
+  const parsed = etfQuerySchema.safeParse({
+    id: c.req.query('id'),
+    format: c.req.query('format'),
+  });
+
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Invalid request';
+    return c.json({ error: message }, 400);
   }
 
-  const format = c.req.query('format') === 'json' ? 'json' : 'text';
+  const { id, format } = parsed.data;
 
   try {
     const quote = await fetchEtfQuote(id);
