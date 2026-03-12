@@ -13,7 +13,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 // ── Public routes ──
 app.get('/', basicAuthMiddleware, uiController);
-app.get('/health', (c) => c.json({ status: 'ok', version: '1.0.0' }));
+app.get('/health', (c) => c.text('ok'));
 // ── Protected routes ──
 app.get('/calc', authMiddleware, calcController);
 app.get('/etf', authMiddleware, etfController);
