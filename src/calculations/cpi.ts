@@ -1,4 +1,4 @@
-import { CalcParams, CalcResult } from '../types/index.js';
+import { CalcParams, CalcResult } from '../types/calc.js';
 import { fetchIndexData, findEntry, latestEntry } from '../services/cbs.js';
 import { fetchCbsCalculation } from '../services/cbsCalculator.js';
 import { formatResult } from '../utils/format.js';

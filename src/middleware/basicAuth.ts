@@ -1,5 +1,5 @@
 import { MiddlewareHandler } from 'hono';
-import { Env } from '../types/index.js';
+import { Env } from '../types/env.js';
 
 /**
  * URL key middleware — protects the UI with ?key=SECRET_KEY in the URL.

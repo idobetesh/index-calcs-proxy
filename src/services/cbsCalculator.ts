@@ -1,4 +1,5 @@
-import { CalcParams, CalcResult, INDEX_IDS, IndexType } from '../types/index.js';
+import { INDEX_IDS, IndexType } from '../types/cbs.js';
+import { CalcParams, CalcResult } from '../types/calc.js';
 import { formatResult } from '../utils/format.js';
 
 const CBS_CALC_BASE = 'https://api.cbs.gov.il/index/data/calculator';

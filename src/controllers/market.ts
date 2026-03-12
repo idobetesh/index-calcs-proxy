@@ -1,9 +1,5 @@
 import { Context } from 'hono';
-
-interface QuoteResult {
-  price: number;
-  change: number; // % change from previous close
-}
+import { QuoteResult } from '../types/market.js';
 
 /**
  * Fetches a single Stooq CSV quote.

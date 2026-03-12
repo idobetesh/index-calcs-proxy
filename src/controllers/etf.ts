@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { Env } from '../types/index.js';
+import { Env } from '../types/env.js';
 import { fetchEtfQuote } from '../services/etf.js';
 
 const VALID_ID = /^\d{6,10}$/;
