@@ -1,36 +1,20 @@
+import { EtfQuote, MayaFundResponse } from '../types/etf.js';
+import { fetchWithTimeout } from '../utils/fetch.js';
+
+export type { EtfQuote };
+
 const TIMEOUT_MS = 8_000;
-
-export interface EtfQuote {
-  id: string;
-  name: string;
-  price: number;
-  currency: 'ILA'; // אגורות (agurot) — 1/100 of ILS
-  date: string;
-  source: string;
-}
-
-interface MayaFundResponse {
-  fundId?: number;
-  name?: string;
-  purchasePrice?: number;
-  redemptionPrice?: number;
-  ratesAsOf?: string;
-}
-
-function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
-}
 
 /**
  * Source 1: Maya TASE mutual funds API.
  * Covers open-ended funds — security IDs typically starting with 5.
  */
 async function fetchMayaMutual(id: string): Promise<EtfQuote> {
-  const res = await fetchWithTimeout(`https://maya.tase.co.il/api/v1/funds/mutual/${id}`, {
-    headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' },
-  });
+  const res = await fetchWithTimeout(
+    `https://maya.tase.co.il/api/v1/funds/mutual/${id}`,
+    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
+    TIMEOUT_MS,
+  );
   if (!res.ok) throw new Error(`[maya-mutual] HTTP ${res.status}`);
   const json: unknown = await res.json();
   const data = json as MayaFundResponse;
@@ -51,9 +35,11 @@ async function fetchMayaMutual(id: string): Promise<EtfQuote> {
  * Covers Israeli basket ETFs (קרנות סל) — security IDs typically starting with 1.
  */
 async function fetchMayaEtf(id: string): Promise<EtfQuote> {
-  const res = await fetchWithTimeout(`https://maya.tase.co.il/api/v1/funds/etf/${id}`, {
-    headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' },
-  });
+  const res = await fetchWithTimeout(
+    `https://maya.tase.co.il/api/v1/funds/etf/${id}`,
+    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
+    TIMEOUT_MS,
+  );
   if (!res.ok) throw new Error(`[maya-etf] HTTP ${res.status}`);
   const json: unknown = await res.json();
   const data = json as MayaFundResponse;
@@ -131,9 +117,11 @@ async function fetchBizportal(id: string): Promise<EtfQuote> {
   const errors: string[] = [];
   for (const url of urls) {
     try {
-      const res = await fetchWithTimeout(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; curl/8.0)' },
-      });
+      const res = await fetchWithTimeout(
+        url,
+        { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; curl/8.0)' } },
+        TIMEOUT_MS,
+      );
       if (!res.ok) {
         errors.push(`[bizportal] ${url} → HTTP ${res.status}`);
         continue;

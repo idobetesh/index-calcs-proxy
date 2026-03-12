@@ -1,12 +1,8 @@
-import { CbsApiResponse, CbsIndexEntry, IndexType, INDEX_IDS } from '../types/index.js';
+import { CbsApiResponse, CbsIndexEntry, DataSource, IndexType, INDEX_IDS } from '../types/cbs.js';
+import { fetchWithTimeout } from '../utils/fetch.js';
 
 const CBS_BASE_URL = 'https://api.cbs.gov.il/index/data/price';
 const TIMEOUT_MS = 10_000;
-
-interface DataSource {
-  label: string;
-  url: string;
-}
 
 /**
  * Multiple source URLs per index.
@@ -40,29 +36,18 @@ function cbsPagedUrl(id: number, pageSize: number): string {
  * Fetches a single source URL with timeout.
  */
 async function fetchSource(source: DataSource): Promise<CbsIndexEntry[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
   try {
-    const response = await fetch(source.url, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'curl/8.0',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
+    const response = await fetchWithTimeout(
+      source.url,
+      { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
+      TIMEOUT_MS,
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const raw: unknown = await response.json();
     return parseCbsResponse(raw);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`[${source.label}] ${msg}`);
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 

@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { Env } from '../types/index.js';
+import { Env } from '../types/env.js';
 
 function buildHtml(secret: string): string {
   return `<!DOCTYPE html>
@@ -61,6 +61,7 @@ function buildHtml(secret: string): string {
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { overflow-x: hidden; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -98,7 +99,9 @@ function buildHtml(secret: string): string {
       animation: ticker-scroll 90s linear infinite;
       will-change: transform;
     }
-    .ticker-bar:hover .ticker-track { animation-play-state: paused; }
+    @media (hover: hover) {
+      .ticker-bar:hover .ticker-track { animation-play-state: paused; }
+    }
     @keyframes ticker-scroll {
       0%   { transform: translateX(0); }
       100% { transform: translateX(-50%); }
@@ -127,10 +130,29 @@ function buildHtml(secret: string): string {
     }
     @keyframes ticker-fade { from { opacity: 0.4; } to { opacity: 1; } }
 
+    /* ── Page layout ── */
+    .page-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 1400px;
+      min-width: 0;
+      align-items: start;
+    }
+    .col-right {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media (max-width: 768px) {
+      .page-grid { grid-template-columns: 1fr; }
+    }
+
     /* ── Top bar ── */
     .topbar {
       width: 100%;
-      max-width: 680px;
+      max-width: 1400px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -200,12 +222,11 @@ function buildHtml(secret: string): string {
       box-shadow: var(--card-shadow);
       padding: 2rem;
       width: 100%;
-      max-width: 680px;
       transition: background 0.2s, border-color 0.2s;
     }
 
     /* ── Header ── */
-    .card-header { margin-bottom: 1.75rem; }
+    .card-header { margin-bottom: 1.75rem; position: relative; }
     .card-header h1 {
       font-size: 1.5rem;
       font-weight: 800;
@@ -217,6 +238,48 @@ function buildHtml(secret: string): string {
       font-size: 0.85rem;
       color: var(--text-muted);
     }
+    .rate-chip {
+      position: absolute;
+      top: 0;
+      right: 0;
+      text-align: right;
+      display: none;
+      cursor: default;
+    }
+    .rate-chip.loaded { display: block; }
+    .rate-chip-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .rate-chip-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .rate-chip::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.72rem;
+      line-height: 1.6;
+      padding: 0.4rem 0.65rem;
+      border-radius: 8px;
+      white-space: pre;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 10;
+      text-align: left;
+    }
+    .rate-chip:hover::after { opacity: 1; }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -660,6 +723,94 @@ function buildHtml(secret: string): string {
       padding: 0.15rem 0.45rem;
       font-weight: 500;
     }
+    .market-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .market-cell {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: border-color 0.2s;
+    }
+    .market-cell.open  { border-color: var(--green-border); }
+    .market-cell.closed { border-color: var(--red-border); }
+    .market-cell-name {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    @keyframes glow-open {
+      0%, 100% { box-shadow: 0 0 5px rgba(52,211,153,0.35); }
+      50%       { box-shadow: 0 0 11px rgba(52,211,153,0.65), 0 0 3px rgba(52,211,153,0.4); }
+    }
+    .market-status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .market-status-badge.open  {
+      background: var(--green-bg);
+      color: var(--green);
+      animation: glow-open 2.2s ease-in-out infinite;
+    }
+    .market-status-badge.closed {
+      background: var(--red-bg);
+      color: var(--red);
+      box-shadow: 0 0 6px rgba(248,113,113,0.3);
+    }
+    .market-badge-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .market-badge-wrap::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.7rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 10;
+    }
+    .market-badge-wrap:hover::after { opacity: 1; }
+    .market-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .market-loading {
+      grid-column: 1 / -1;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .market-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .market-link:hover {
+      text-decoration: underline;
+      color: var(--accent);
+    }
+    @media (max-width: 480px) {
+      .market-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -683,11 +834,16 @@ function buildHtml(secret: string): string {
     </div>
   </div>
 
+  <div class="page-grid">
   <div class="card">
     <div class="card-header">
       <div class="badge">🇮🇱 Israeli CBS</div>
       <h1>Index Calculator</h1>
       <p>CPI &amp; Construction index-linked amount adjustment</p>
+      <div class="rate-chip" id="rateChip">
+        <div class="rate-chip-label"><a href="https://www.boi.org.il/roles/monetary-policy/interest-rate-dates/" target="_blank" rel="noopener noreferrer" class="market-link">BOI Rate ↗</a></div>
+        <div class="rate-chip-value" id="rateChipValue"></div>
+      </div>
     </div>
 
     <div class="form-grid">
@@ -748,7 +904,8 @@ function buildHtml(secret: string): string {
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.5rem;">
+  <div class="col-right">
+  <div class="card">
     <div class="card-header">
       <div class="badge">📈 Israeli ETFs</div>
       <h1>ETF Price Lookup</h1>
@@ -780,6 +937,20 @@ function buildHtml(secret: string): string {
       </div>
       <div class="result-body" id="etfResultBody"></div>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="badge">🕐 Markets</div>
+      <h1>Market Hours</h1>
+      <p>Live open/closed status for major stock exchanges</p>
+    </div>
+    <div id="marketStatusGrid" class="market-grid">
+      <div class="market-loading">Loading…</div>
+    </div>
+    <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:right;">Holiday-aware · Updates every 60s</p>
+  </div>
+  </div>
   </div>
 
   <script>
@@ -1123,6 +1294,7 @@ function buildHtml(secret: string): string {
 
     // ── Ticker ──
     const TICKER_ITEMS = [
+      { label: 'BOI RATE', type: 'rate'   },
       { label: 'USD/ILS', type: 'fiat'   },
       { label: 'EUR/ILS', type: 'fiat'   },
       { label: 'GBP/ILS', type: 'fiat'   },
@@ -1140,10 +1312,11 @@ function buildHtml(secret: string): string {
     let prevRates = {};
 
     async function fetchTicker() {
-      const [fiatRes, cryptoRes, marketRes] = await Promise.allSettled([
+      const [fiatRes, cryptoRes, marketRes, rateRes] = await Promise.allSettled([
         fetch('https://api.frankfurter.app/latest?from=ILS&to=USD,EUR,GBP').then(r => r.json()),
         fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true').then(r => r.json()),
-        fetch('/market').then(r => r.json()),
+        fetch('/market?secret=' + SECRET).then(r => r.json()),
+        fetch('/rate?secret=' + SECRET).then(r => r.json()),
       ]);
 
       const rates = {};
@@ -1181,6 +1354,18 @@ function buildHtml(secret: string): string {
         if (m.nasdaq)  rates['NASDAQ']  = { value: Math.round(m.nasdaq.price).toLocaleString('en-US'), change: m.nasdaq.change };
         if (m.russell) rates['RUSSELL'] = { value: m.russell.price.toFixed(2), change: m.russell.change };
         if (m.msci)    rates['MSCI']    = { value: m.msci.price.toFixed(2), change: m.msci.change };
+      }
+
+      if (rateRes.status === 'fulfilled' && rateRes.value?.rate != null) {
+        const r = rateRes.value.rate;
+        rates['BOI RATE'] = { value: r.toFixed(2) + '%' };
+        const chip = document.getElementById('rateChip');
+        const chipVal = document.getElementById('rateChipValue');
+        if (chip && chipVal) {
+          chipVal.textContent = r.toFixed(2) + '%';
+          chip.setAttribute('data-tooltip', buildRateTooltip(r));
+          chip.classList.add('loaded');
+        }
       }
 
       if (Object.keys(rates).length) {
@@ -1298,6 +1483,137 @@ function buildHtml(secret: string): string {
       if (document.activeElement && document.activeElement.id === 'etfId') lookupEtf();
       else calculate();
     });
+
+    // ── BOI Rate ──
+    // Decision dates published annually: https://www.boi.org.il
+    const BOI_DECISIONS = [
+      '2026-01-26','2026-03-09','2026-04-27','2026-06-08',
+      '2026-07-27','2026-09-07','2026-10-26','2026-12-21',
+    ];
+
+    function nextRateDecision() {
+      const today = new Date().toISOString().slice(0, 10);
+      return BOI_DECISIONS.find(d => d > today) ?? 'TBD';
+    }
+
+    function buildRateTooltip(rate) {
+      const prime = (rate + 1.5).toFixed(2);
+      const next  = nextRateDecision();
+      return 'Prime = BOI + 1.5% = ' + prime + '%\\nNext decision: ' + next;
+    }
+
+    // ── Market Status ──
+    const MARKET_TIMEZONES = {
+      tlv:        'Asia/Jerusalem',
+      london:     'Europe/London',
+      wallstreet: 'America/New_York',
+      swiss:      'Europe/Zurich',
+    };
+
+    const MARKET_HOURS = {
+      tlv:        { openH:9,  openM:59, closeH:17, closeM:25, tradingDays:[1,2,3,4,5] },
+      london:     { openH:8,  openM:0,  closeH:16, closeM:30, tradingDays:[1,2,3,4,5] },
+      wallstreet: { openH:9,  openM:30, closeH:16, closeM:0,  tradingDays:[1,2,3,4,5] },
+      swiss:      { openH:9,  openM:0,  closeH:17, closeM:30, tradingDays:[1,2,3,4,5] },
+    };
+
+    const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    function formatDuration(mins) {
+      if (mins <= 0) return '< 1m';
+      const h = Math.floor(mins / 60), m = mins % 60;
+      if (h > 0 && m > 0) return h + 'h ' + m + 'm';
+      return h > 0 ? h + 'h' : m + 'm';
+    }
+
+    function getMarketTooltip(key, isOpen) {
+      const tz = MARKET_TIMEZONES[key];
+      const hrs = MARKET_HOURS[key];
+      const now = new Date();
+      const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday:'short', hour:'2-digit', minute:'2-digit', hour12:false });
+      const parts = fmt.formatToParts(now);
+      const get = t => parts.find(p => p.type === t)?.value ?? '0';
+      let curH = parseInt(get('hour')); if (curH === 24) curH = 0;
+      const curM = parseInt(get('minute'));
+      const weekday = { Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6 }[get('weekday')] ?? 0;
+      const nowMins  = curH * 60 + curM;
+      const openMins = hrs.openH * 60 + hrs.openM;
+      const closeMins = hrs.closeH * 60 + hrs.closeM;
+      if (isOpen) {
+        return 'Closes in ' + formatDuration(closeMins - nowMins);
+      }
+      if (hrs.tradingDays.includes(weekday) && nowMins < openMins) {
+        return 'Opens in ' + formatDuration(openMins - nowMins);
+      }
+      for (let d = 1; d <= 7; d++) {
+        const next = (weekday + d) % 7;
+        if (hrs.tradingDays.includes(next)) {
+          const lbl = d === 1 ? 'tomorrow' : DAY_NAMES[next];
+          return \`Opens \${lbl} at \${String(hrs.openH).padStart(2,'0')}:\${String(hrs.openM).padStart(2,'0')}\`;
+        }
+      }
+      return 'Closed';
+    }
+
+    let lastMarketData = null;
+
+    function tickMarketClocks() {
+      const now = new Date();
+      Object.entries(MARKET_TIMEZONES).forEach(function([key, tz]) {
+        const el = document.getElementById('marketClock-' + key);
+        if (el) {
+          const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+          let time = fmt.format(now);
+          if (time.startsWith('24:')) time = '00:' + time.slice(3);
+          el.textContent = time;
+        }
+        if (lastMarketData && lastMarketData[key]) {
+          const wrap = document.getElementById('marketTooltip-' + key);
+          if (wrap) wrap.setAttribute('data-tooltip', getMarketTooltip(key, lastMarketData[key].open));
+        }
+      });
+    }
+
+    const MARKET_URLS = {
+      tlv:        'https://www.tase.co.il',
+      london:     'https://www.londonstockexchange.com',
+      wallstreet: 'https://www.nyse.com',
+      swiss:      'https://www.six-group.com/en/products-services/the-swiss-stock-exchange.html',
+    };
+
+    function renderMarketStatus(data) {
+      lastMarketData = data;
+      const grid = document.getElementById('marketStatusGrid');
+      if (!grid) return;
+      const keys = ['tlv', 'london', 'wallstreet', 'swiss'];
+      grid.innerHTML = keys.map(function(key) {
+        const m = data[key];
+        if (!m) return '';
+        const cls = m.open ? 'open' : 'closed';
+        const label = m.open ? 'Open' : 'Closed';
+        const url = MARKET_URLS[key];
+        const tooltip = getMarketTooltip(key, m.open);
+        return \`<div class="market-cell \${cls}">
+          <div class="market-cell-name">\${m.flag} <a href="\${url}" target="_blank" rel="noopener noreferrer" class="market-link">\${m.name}</a></div>
+          <div class="market-time" id="marketClock-\${key}">\${m.localTime}</div>
+          <div><span class="market-badge-wrap" id="marketTooltip-\${key}" data-tooltip="\${tooltip}"><span class="market-status-badge \${cls}">\${label}</span></span></div>
+        </div>\`;
+      }).join('');
+    }
+
+    async function fetchMarketStatus() {
+      try {
+        const res = await fetch('/market-status?secret=' + SECRET);
+        if (!res.ok) return;
+        const data = await res.json();
+        renderMarketStatus(data);
+      } catch (_) { /* ignore network errors */ }
+    }
+
+    fetchMarketStatus();
+    tickMarketClocks();
+    setInterval(fetchMarketStatus, 60_000);
+    setInterval(tickMarketClocks, 1_000);
   </script>
   <div id="toast">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>

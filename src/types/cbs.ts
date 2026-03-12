@@ -1,8 +1,3 @@
-export interface Env {
-  SECRET_KEY: string;
-  ENVIRONMENT: string;
-}
-
 export type IndexType = 'cpi' | 'construction' | 'housing';
 
 export const INDEX_IDS: Record<IndexType, number> = {
@@ -33,22 +28,7 @@ export interface CbsApiResponse {
   }>;
 }
 
-export interface CalcParams {
-  amount: number;
-  from: string; // YYYY-MM
-  to: string; // YYYY-MM
-  index: IndexType;
-  format: 'text' | 'json';
-}
-
-export interface CalcResult {
-  fromPeriod: string;
-  toPeriod: string;
-  fromValue: number;
-  toValue: number;
-  originalAmount: number;
-  indexedAmount: number;
-  difference: number;
-  percentage: number;
-  formatted: string;
+export interface DataSource {
+  label: string;
+  url: string;
 }

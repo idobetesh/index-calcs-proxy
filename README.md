@@ -77,6 +77,190 @@ Note: `fromPeriod`/`toPeriod` reflect the CBS-snapped periods used internally (d
 
 ---
 
+### `GET /etf`
+
+Returns the current price of an Israeli ETF or mutual fund by TASE security number.
+
+**Query parameters**
+
+| Parameter | Required | Description                                       |
+| --------- | -------- | ------------------------------------------------- |
+| `id`      | Yes      | TASE security number (6–10 digits)                |
+| `format`  | No       | `text` (default) or `json`                        |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header) |
+
+**Text response** (default, for Google Sheets):
+
+```
+576.15
+```
+
+**JSON response** (`format=json`):
+
+```json
+{
+  "id": "1159235",
+  "name": "תכלית S&P 500",
+  "price": 576.15,
+  "currency": "ILS",
+  "date": "2024-12-31",
+  "source": "maya"
+}
+```
+
+**Google Sheets example:**
+
+```
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/etf?id=1159235&format=text&secret=YOUR_SECRET")
+```
+
+---
+
+### `GET /rate`
+
+Returns the current Bank of Israel interest rate (ריבית בנק ישראל).
+
+> Note: prime rate = BOI rate + 1.5%
+
+**Query parameters**
+
+| Parameter | Required | Description                                       |
+| --------- | -------- | ------------------------------------------------- |
+| `format`  | No       | `text` (default) or `json`                        |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header) |
+
+**Text response** (default):
+
+```
+4.00
+```
+
+**JSON response** (`format=json`):
+
+```json
+{
+  "rate": 4,
+  "effectiveDate": "2026-01-26",
+  "asOf": "2026-03-12T10:00:00.000Z"
+}
+```
+
+**Google Sheets example:**
+
+```
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/rate?format=text&secret=YOUR_SECRET")
+```
+
+`Cache-Control: public, max-age=3600`
+
+---
+
+### `GET /market-status`
+
+Returns open/closed status for major stock exchanges. Holiday-aware via [Nager.Date](https://date.nager.at).
+
+**Query parameters**
+
+| Parameter | Required | Description                                                   |
+| --------- | -------- | ------------------------------------------------------------- |
+| `market`  | No       | `tlv`, `london`, `wallstreet`, or `swiss`. Omit for all four. |
+| `format`  | No       | `json` (default) or `text` (only valid with `market`)         |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header)             |
+
+**All markets response** (no `market` param):
+
+```json
+{
+  "tlv": {
+    "key": "tlv",
+    "name": "Tel Aviv Stock Exchange",
+    "open": true,
+    "localTime": "14:30",
+    "timezone": "Asia/Jerusalem",
+    "flag": "🇮🇱"
+  },
+  "london": {
+    "key": "london",
+    "name": "London Stock Exchange",
+    "open": true,
+    "localTime": "12:30",
+    "timezone": "Europe/London",
+    "flag": "🇬🇧"
+  },
+  "wallstreet": {
+    "key": "wallstreet",
+    "name": "New York Stock Exchange",
+    "open": false,
+    "localTime": "07:30",
+    "timezone": "America/New_York",
+    "flag": "🇺🇸"
+  },
+  "swiss": {
+    "key": "swiss",
+    "name": "SIX Swiss Exchange",
+    "open": true,
+    "localTime": "13:30",
+    "timezone": "Europe/Zurich",
+    "flag": "🇨🇭"
+  },
+  "asOf": "2026-03-12T12:30:00.000Z"
+}
+```
+
+**Single market text response** (`market=wallstreet&format=text`):
+
+```
+false
+```
+
+**Google Sheets example:**
+
+```
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/market-status?market=wallstreet&format=text&secret=YOUR_SECRET")
+```
+
+**Known limitations:** US early-close days (Thanksgiving eve, Christmas eve) and TASE Erev Chag early-close are not modeled. After-hours / pre-market sessions are not modeled.
+
+`Cache-Control: no-store`
+
+---
+
+### `GET /market`
+
+Returns live prices for metals, volatility, and equity indices (server-side proxied to avoid CORS).
+
+**Query parameters**
+
+| Parameter | Required | Description                                       |
+| --------- | -------- | ------------------------------------------------- |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header) |
+
+**Response:**
+
+```json
+{
+  "gold": { "price": 2650.0, "change": 0.42 },
+  "silver": { "price": 30.15, "change": -0.21 },
+  "vix": { "price": 18.5, "change": -1.3 },
+  "sp500": { "price": 5200.0, "change": 0.15 },
+  "nasdaq": { "price": 18400.0, "change": 0.22 },
+  "russell": { "price": 2100.0, "change": -0.08 },
+  "msci": { "price": 110.5, "change": 0.05 }
+}
+```
+
+---
+
+### `GET /health`
+
+Health check. No auth required.
+
+```json
+{ "status": "ok", "version": "1.0.0" }
+```
+
+---
+
 ## Google Sheets integration
 
 The single-formula approach using `LET` (no helper cells needed):
@@ -145,6 +329,9 @@ No other files need changing.
 
 ## Data sources
 
-- **Primary calculator**: [CBS Calculator API](https://api.cbs.gov.il/index/data/calculator) — official chaining coefficients, handles base-year changes automatically
-- **Fallback (chaining)**: [CBS Price Index API](https://api.cbs.gov.il/index/data/price) — month-over-month percent compounding, used when CBS calculator is unavailable
+- **Primary calculator**: [CBS Calculator API](https://www.cbs.gov.il/he/Pages/default.aspx) — official chaining coefficients, handles base-year changes automatically
+- **Fallback (chaining)**: [CBS Price Index API](https://www.cbs.gov.il/he/Pages/default.aspx) — month-over-month percent compounding, used when CBS calculator is unavailable
+- **ETF / fund prices**: [TASE Maya](https://maya.tase.co.il)
+- **BOI interest rate**: [Bank of Israel SDMX v2](https://edge.boi.gov.il)
+- **Public holidays**: [Nager.Date](https://date.nager.at)
 - **Market data**: [Stooq](https://stooq.com) (Gold, Silver, S&P 500, NASDAQ, Russell, MSCI), [CBOE](https://www.cboe.com/tradable_products/vix/vix_historical_data/) (VIX), [Frankfurter](https://frankfurter.app) (USD/ILS, EUR/ILS, GBP/ILS), [CoinGecko](https://coingecko.com) (BTC, ETH)

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { calculateCpi } from '../src/calculations/cpi.js';
 import * as cbs from '../src/services/cbs.js';
 import * as cbsCalc from '../src/services/cbsCalculator.js';
-import { CalcParams } from '../src/types/index.js';
+import { CalcParams } from '../src/types/calc.js';
 
 // monthlyPercent is the month-over-month % change used by the chaining calculation.
 // Raw values are still stored but NOT used for the ratio — only monthlyPercent is.

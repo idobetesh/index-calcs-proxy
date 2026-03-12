@@ -1,5 +1,5 @@
 import { Context, Next } from 'hono';
-import { Env } from '../types/index.js';
+import { Env } from '../types/env.js';
 
 /**
  * Timing-safe string comparison using HMAC via crypto.subtle.

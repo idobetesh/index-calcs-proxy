@@ -1,12 +1,14 @@
 import { Context } from 'hono';
-import { Env, IndexType, CalcParams } from '../types/index.js';
+import { Env } from '../types/env.js';
+import { IndexType } from '../types/cbs.js';
+import { CalcParams, CalcResult } from '../types/calc.js';
 import { isValidPeriod, isPeriodBefore } from '../utils/format.js';
 import { calculateCpi } from '../calculations/cpi.js';
 import { calculateConstruction } from '../calculations/construction.js';
 import { calculateHousing } from '../calculations/housing.js';
 import { latestEntry, fetchIndexData } from '../services/cbs.js';
 
-type CalcFn = (params: CalcParams) => Promise<import('../types/index.js').CalcResult>;
+type CalcFn = (params: CalcParams) => Promise<CalcResult>;
 
 const CALCULATORS: Record<IndexType, CalcFn> = {
   cpi: calculateCpi,
