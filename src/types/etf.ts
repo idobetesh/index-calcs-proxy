@@ -14,3 +14,8 @@ export interface MayaFundResponse {
   redemptionPrice?: number;
   ratesAsOf?: string;
 }
+
+export interface TaseInDayResponse {
+  baseInfo?: { brte?: number; dte?: string };
+  inDay?: Array<{ pval?: number }>;
+}

@@ -130,13 +130,13 @@ describe('GET /etf - upstream errors', () => {
     expect(body).toHaveProperty('error', expect.stringContaining('All sources failed'));
   });
 
-  it('returns 502 with error message when security is not found', async () => {
+  it('returns 404 with error message when security is not found', async () => {
     vi.spyOn(etfService, 'fetchEtfQuote').mockRejectedValue(
       new Error('Security "9999999" not found. Please check the TASE security number.'),
     );
     const req = makeRequest('/etf?id=9999999&secret=test-secret');
     const res = await app.fetch(req, env);
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(404);
     const body = await res.json();
     expect(body).toHaveProperty('error', expect.stringContaining('not found'));
   });
