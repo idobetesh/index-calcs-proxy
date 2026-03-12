@@ -5,3 +5,7 @@ dist/
 *.local
 .DS_Store
 .claude/
+
+# Google Apps Script (clasp)
+~/.clasprc.json
+gs/.clasp.json
