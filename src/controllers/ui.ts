@@ -748,6 +748,40 @@ function buildHtml(secret: string): string {
     </div>
   </div>
 
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-header">
+      <div class="badge">📈 Israeli ETFs</div>
+      <h1>ETF Price Lookup</h1>
+      <p>Current NAV/price by TASE security number (מספר ני&quot;ע)</p>
+    </div>
+
+    <div class="field">
+      <label for="etfId">Security Number</label>
+      <input type="text" id="etfId" placeholder="e.g. 5119466, 1150572…" inputmode="numeric" autocomplete="off" />
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="btn-wrap">
+      <button class="btn" id="etfBtn" onclick="lookupEtf(event)">
+        <div class="spinner"></div>
+        <span class="btn-text">Look Up</span>
+      </button>
+      <div class="btn-progress" id="etfBtnProgress">
+        <div class="btn-progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="result" id="etfResult">
+      <div class="result-hero" id="etfResultHero">
+        <div class="result-hero-label" id="etfResultLabel">Price</div>
+        <div class="result-hero-value" id="etfResultMain"></div>
+        <div class="result-hero-sub" id="etfResultSub"></div>
+      </div>
+      <div class="result-body" id="etfResultBody"></div>
+    </div>
+  </div>
+
   <script>
     const SECRET = ${JSON.stringify(secret)};
 
@@ -1176,9 +1210,93 @@ function buildHtml(secret: string): string {
     fetchTicker();
     setInterval(fetchTicker, 60_000);
 
-    // Allow Enter key to submit
+    // ── ETF Lookup ──
+    async function lookupEtf(e) {
+      const btn      = document.getElementById('etfBtn');
+      const progress = document.getElementById('etfBtnProgress');
+      const resultEl = document.getElementById('etfResult');
+
+      if (e) spawnRipple(btn, e);
+
+      const id = document.getElementById('etfId').value.trim().replace(/[^0-9]/g, '');
+      if (!id) { showEtfError('Please enter a security number.'); return; }
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+      progress.classList.add('active');
+      resultEl.style.display = 'none';
+
+      try {
+        const res  = await fetch('/etf?id=' + id + '&format=json&secret=' + SECRET);
+        const data = await res.json();
+        if (!res.ok || data.error) { showEtfError(data.error || 'Lookup failed.'); return; }
+        showEtfResult(data);
+      } catch (err) {
+        showEtfError('Network error: ' + err.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        progress.classList.remove('active');
+      }
+    }
+
+    function showEtfError(msg) {
+      const resultEl = document.getElementById('etfResult');
+      resultEl.className = 'result error';
+      resultEl.style.display = 'block';
+      document.getElementById('etfResultLabel').textContent = 'Error';
+      document.getElementById('etfResultMain').textContent  = msg;
+      document.getElementById('etfResultSub').textContent   = '';
+      document.getElementById('etfResultBody').innerHTML    = '';
+    }
+
+    function showEtfResult(data) {
+      const resultEl = document.getElementById('etfResult');
+      resultEl.className = 'result';
+      resultEl.style.display = 'block';
+      void resultEl.offsetWidth;
+      resultEl.classList.add('animating');
+      resultEl.addEventListener('animationend', () => resultEl.classList.remove('animating'), { once: true });
+
+      document.getElementById('etfResultLabel').textContent = data.name || ('Security ' + data.id);
+      document.getElementById('etfResultMain').innerHTML =
+        '<span style="display:inline-flex;flex-direction:row;align-items:baseline;gap:0.2em">' +
+          '<span>\\u05d0\\u05d2</span>' +
+          '<span>' + data.price.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>' +
+        '</span>';
+
+      const taseUrl = 'https://market.tase.co.il/en/market_data/security/' + data.id + '/major_data';
+      const subParts = [];
+      if (data.date) subParts.push(data.date);
+      subParts.push('via ' + data.source);
+      const subEl = document.getElementById('etfResultSub');
+      subEl.innerHTML = subParts.join(' \\u00b7 ') +
+        ' \\u00b7 <a href="' + taseUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">TASE ↗</a>';
+
+      const formula = '=IMPORTDATA("' + window.location.origin + '/etf?id=' + data.id + '&format=text&secret=YOUR_SECRET")';
+      document.getElementById('etfResultBody').innerHTML = \`
+        <div class="sheets-box">
+          <div class="sheets-box-header">
+            <span class="sheets-box-label">Google Sheets formula</span>
+            <button class="copy-btn" id="etfCopyBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <code id="etfFormulaCode"></code>
+        </div>
+      \`;
+      document.getElementById('etfFormulaCode').textContent = formula;
+      document.getElementById('etfCopyBtn').addEventListener('click', function() {
+        copyFormula(this, formula);
+      });
+    }
+
+    // ── Allow Enter key to submit ──
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') calculate();
+      if (e.key !== 'Enter') return;
+      if (document.activeElement && document.activeElement.id === 'etfId') lookupEtf();
+      else calculate();
     });
   </script>
   <div id="toast">
