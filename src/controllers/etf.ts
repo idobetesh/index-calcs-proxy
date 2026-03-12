@@ -37,6 +37,7 @@ export async function etfController(c: Context<{ Bindings: Env }>): Promise<Resp
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return c.json({ error: message }, 502);
+    const status = message.includes('not found') ? 404 : 502;
+    return c.json({ error: message }, status);
   }
 }

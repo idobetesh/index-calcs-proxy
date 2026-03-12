@@ -1,4 +1,4 @@
-import { EtfQuote, MayaFundResponse } from '../types/etf.js';
+import { EtfQuote, MayaFundResponse, TaseInDayResponse } from '../types/etf.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
 
 export type { EtfQuote };
@@ -52,6 +52,45 @@ async function fetchMayaEtf(id: string): Promise<EtfQuote> {
     currency: 'ILA',
     date: data.ratesAsOf ?? '',
     source: 'maya-etf',
+  };
+}
+
+/**
+ * Source 3: TASE intraday API.
+ * Covers foreign ETFs and other securities not available via the Maya funds API.
+ */
+async function fetchTaseInDay(id: string): Promise<EtfQuote> {
+  const oid = id.padStart(8, '0');
+  const url = `https://api.tase.co.il/api/charts/getindaydata?ct=0&ot=1&lang=1&cf=0&cp=0&cv=0&cl=0&cgt=1&dFrom=&dTo=&oid=${oid}`;
+  const res = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; curl/8.0)',
+        Referer: 'https://market.tase.co.il/',
+        Origin: 'https://market.tase.co.il',
+      },
+    },
+    TIMEOUT_MS,
+  );
+  if (!res.ok) throw new Error(`[tase-inday] HTTP ${res.status}`);
+
+  const json: unknown = await res.json();
+  const data = json as TaseInDayResponse;
+
+  // Prefer latest intraday price, fall back to base rate
+  const inDay = data.inDay ?? [];
+  const raw = inDay.length > 0 ? inDay[inDay.length - 1]?.pval : data.baseInfo?.brte;
+  if (!raw) throw new Error('[tase-inday] No price in response');
+
+  return {
+    id,
+    name: '',
+    price: raw,
+    currency: 'ILA',
+    date: data.baseInfo?.dte ?? '',
+    source: 'tase-inday',
   };
 }
 
@@ -146,6 +185,7 @@ export async function fetchEtfQuote(id: string): Promise<EtfQuote> {
   const sources: Array<() => Promise<EtfQuote>> = [
     (): Promise<EtfQuote> => fetchMayaMutual(id),
     (): Promise<EtfQuote> => fetchMayaEtf(id),
+    (): Promise<EtfQuote> => fetchTaseInDay(id),
     (): Promise<EtfQuote> => fetchBizportal(id),
   ];
 
@@ -158,7 +198,9 @@ export async function fetchEtfQuote(id: string): Promise<EtfQuote> {
     }
   }
 
-  const allNotFound = errors.every((e) => e.includes('404') || e.includes('parse price'));
+  const allNotFound = errors.every(
+    (e) => e.includes('404') || e.includes('not found') || e.includes('parse price'),
+  );
   if (allNotFound) {
     throw new Error(`Security "${id}" not found. Please check the TASE security number.`);
   }
