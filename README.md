@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Hono](https://img.shields.io/badge/Hono-4.4-orange?logo=hono&logoColor=white)](https://hono.dev/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
-[![Vitest](https://img.shields.io/badge/tested_with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/idobetesh/13d12fa7c5d211a509b87a343c3258dc/raw/index-calcs-proxy-coverage.json)](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/ci.yml)
 [![Google Apps Script](https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white)](gs/ONBOARDING.md)
 
 A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Statistics (CBS) calculator API and returns plain-text results consumable directly by Google Sheets `IMPORTDATA`.

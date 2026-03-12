@@ -30,6 +30,16 @@ describe('GET /health', () => {
   });
 });
 
+describe('GET /calc - auth middleware misconfiguration', () => {
+  it('returns 500 when SECRET_KEY is not configured', async () => {
+    const req = makeRequest('/calc?amount=100000&from=2024-01&secret=anything');
+    const res = await app.fetch(req, { ENVIRONMENT: 'test' }); // no SECRET_KEY
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body).toHaveProperty('error', expect.stringContaining('SECRET_KEY'));
+  });
+});
+
 describe('GET /calc - auth', () => {
   it('returns 401 without secret', async () => {
     const req = makeRequest('/calc?amount=100000&from=2024-01');

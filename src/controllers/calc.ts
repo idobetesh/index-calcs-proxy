@@ -1,12 +1,13 @@
 import { Context } from 'hono';
 import { Env } from '../types/env.js';
-import { IndexType } from '../types/cbs.js';
 import { CalcParams, CalcResult } from '../types/calc.js';
-import { isValidPeriod, isPeriodBefore } from '../utils/format.js';
+import { isPeriodBefore } from '../utils/format.js';
 import { calculateCpi } from '../calculations/cpi.js';
 import { calculateConstruction } from '../calculations/construction.js';
 import { calculateHousing } from '../calculations/housing.js';
 import { latestEntry, fetchIndexData } from '../services/cbs.js';
+import { calcQuerySchema } from '../schemas/index.js';
+import { IndexType } from '../types/cbs.js';
 
 type CalcFn = (params: CalcParams) => Promise<CalcResult>;
 
@@ -16,47 +17,32 @@ const CALCULATORS: Record<IndexType, CalcFn> = {
   housing: calculateHousing,
 };
 
-const VALID_INDEX_TYPES: IndexType[] = ['cpi', 'construction', 'housing'];
-const VALID_FORMATS = ['text', 'json'] as const;
-
-function isIndexType(value: string): value is IndexType {
-  return (VALID_INDEX_TYPES as string[]).includes(value);
-}
-
 /**
  * Controller for GET /calc.
  * Parses and validates query params, dispatches to the appropriate
  * calculation service, and returns text/plain or JSON.
  */
 export async function calcController(c: Context<{ Bindings: Env }>): Promise<Response> {
-  const amountStr = c.req.query('amount') ?? '';
-  const fromStr = c.req.query('from') ?? '';
-  const toStr = c.req.query('to') ?? '';
-  const indexStr = c.req.query('index') ?? 'cpi';
-  const formatStr = c.req.query('format') ?? 'text';
+  const parsed = calcQuerySchema.safeParse({
+    amount: c.req.query('amount'),
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+    index: c.req.query('index'),
+    format: c.req.query('format'),
+  });
 
-  // Validate amount
-  const amount = Number(amountStr);
-  if (!amountStr || isNaN(amount) || amount <= 0) {
-    return c.json({ error: 'Invalid or missing "amount". Must be a positive number.' }, 400);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Invalid request';
+    return c.json({ error: message }, 400);
   }
 
-  // Validate from
-  if (!fromStr || !isValidPeriod(fromStr)) {
-    return c.json({ error: 'Invalid or missing "from". Expected YYYY-MM format.' }, 400);
-  }
-
-  // Validate to (optional)
-  let toPeriod = toStr;
-  if (toStr && !isValidPeriod(toStr)) {
-    return c.json({ error: 'Invalid "to". Expected YYYY-MM format.' }, 400);
-  }
+  const { amount, from: fromStr, index: indexStr, format } = parsed.data;
+  let toPeriod = parsed.data.to ?? '';
 
   // Resolve to period: default to latest available
   if (!toPeriod) {
     try {
-      const indexType = isIndexType(indexStr) ? indexStr : 'cpi';
-      const entries = await fetchIndexData(indexType);
+      const entries = await fetchIndexData(indexStr);
       const latest = latestEntry(entries);
       if (!latest) {
         return c.json({ error: 'Could not determine latest index period.' }, 502);
@@ -73,19 +59,6 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
   if (!isPeriodBefore(fromStr, toPeriod)) {
     return c.json({ error: '"from" must be earlier than "to".' }, 400);
   }
-
-  // Validate index type
-  if (!isIndexType(indexStr)) {
-    return c.json(
-      { error: `Invalid "index". Must be one of: ${VALID_INDEX_TYPES.join(', ')}` },
-      400,
-    );
-  }
-
-  // Validate format
-  const format = VALID_FORMATS.includes(formatStr as 'text' | 'json')
-    ? (formatStr as 'text' | 'json')
-    : 'text';
 
   const params: CalcParams = {
     amount,
