@@ -811,6 +811,22 @@ function buildHtml(secret: string): string {
     @media (max-width: 480px) {
       .market-grid { grid-template-columns: 1fr; }
     }
+    .today-btn {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 0.15rem 0.5rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      line-height: 1;
+    }
+    .today-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -861,7 +877,10 @@ function buildHtml(secret: string): string {
       </div>
 
       <div class="field">
-        <label for="to">To <span class="opt">(optional)</span></label>
+        <label for="to" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>To <span class="opt">(optional)</span></span>
+          <button type="button" class="today-btn" onclick="setToday()">Today</button>
+        </label>
         <input type="month" id="to" />
       </div>
 
@@ -1143,6 +1162,13 @@ function buildHtml(secret: string): string {
 
     function fmt(n) {
       return '\\u20aa' + Math.round(n).toLocaleString('en-US');
+    }
+
+    function setToday() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      document.getElementById('to').value = y + '-' + m;
     }
 
     function periodDiff(from, to) {
