@@ -827,6 +827,82 @@ function buildHtml(secret: string): string {
       background: var(--accent);
       color: #fff;
     }
+
+    .compare-toggle-btn {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .compare-toggle-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .compare-slot {
+      flex: 1;
+      min-width: 0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .compare-hero {
+      padding: 0.85rem 1rem;
+      border-radius: 10px 10px 0 0;
+    }
+    .compare-hero.a {
+      background: var(--accent-dim);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-bottom: none;
+    }
+    .compare-hero.b {
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      border-bottom: none;
+    }
+    .compare-hero-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.25rem;
+    }
+    .compare-hero.a .compare-hero-label { color: var(--accent); }
+    .compare-hero.b .compare-hero-label { color: var(--green); }
+    .compare-hero-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .compare-hero-pct {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+    .compare-body {
+      padding: 0.65rem 1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .compare-diff-row {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .compare-diff-row strong { color: var(--text); }
   </style>
 </head>
 <body>
@@ -928,6 +1004,47 @@ function buildHtml(secret: string): string {
         <div class="period-row" id="periodRow"></div>
         <div class="sheets-box" id="sheetsBox"></div>
       </div>
+    </div>
+
+    <div id="compareToggleWrap" style="display:none;margin-top:1rem;text-align:center;">
+      <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleCompare()">+ Compare</button>
+    </div>
+
+    <div id="comparePanel" style="display:none;margin-top:1rem;">
+      <div class="divider"></div>
+      <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">Compare with</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="cmpFrom">From</label>
+          <input type="month" id="cmpFrom" />
+        </div>
+        <div class="field">
+          <label for="cmpTo">To <span class="opt">(optional)</span></label>
+          <input type="month" id="cmpTo" />
+        </div>
+        <div class="field full">
+          <label for="cmpIndex">Index Type</label>
+          <div class="select-wrap">
+            <select id="cmpIndex">
+              <option value="cpi">CPI — Consumer Price Index</option>
+              <option value="construction">Construction Index</option>
+              <option value="housing">Housing Price Index</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:0.75rem;">
+        <div class="btn-wrap">
+          <button class="btn" id="cmpBtn" onclick="runCompare(event)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);">
+            <div class="spinner"></div>
+            <span class="btn-text">Run Comparison</span>
+          </button>
+          <div class="btn-progress" id="cmpBtnProgress">
+            <div class="btn-progress-bar"></div>
+          </div>
+        </div>
+      </div>
+      <div id="compareResults" style="display:none;margin-top:1rem;"></div>
     </div>
   </div>
 
@@ -1092,6 +1209,14 @@ function buildHtml(secret: string): string {
       document.getElementById('sheetsBox').innerHTML = '';
       const copyWrap = document.getElementById('resultCopyWrap');
       if (copyWrap) copyWrap.style.display = 'none';
+      const ctw = document.getElementById('compareToggleWrap');
+      if (ctw) ctw.style.display = 'none';
+      const cp = document.getElementById('comparePanel');
+      if (cp) cp.style.display = 'none';
+      const cr = document.getElementById('compareResults');
+      if (cr) cr.style.display = 'none';
+      const btn = document.getElementById('compareToggleBtn');
+      if (btn) btn.textContent = '+ Compare';
     }
 
     // ── Animated counter ──
@@ -1197,6 +1322,8 @@ function buildHtml(secret: string): string {
       document.getElementById('copyBtn').addEventListener('click', function() {
         copyFormula(this, formula);
       });
+      const ctw = document.getElementById('compareToggleWrap');
+      if (ctw) ctw.style.display = 'block';
     }
 
     function fmt(n) {
@@ -1710,6 +1837,111 @@ function buildHtml(secret: string): string {
     tickMarketClocks();
     setInterval(fetchMarketStatus, 60_000);
     setInterval(tickMarketClocks, 1_000);
+
+    // ── Compare ──
+    function toggleCompare() {
+      const panel = document.getElementById('comparePanel');
+      const btn   = document.getElementById('compareToggleBtn');
+      const isOpen = panel.style.display !== 'none';
+      panel.style.display = isOpen ? 'none' : 'block';
+      btn.textContent     = isOpen ? '+ Compare' : '− Compare';
+      if (!isOpen) {
+        // Pre-fill compare form from main form
+        document.getElementById('cmpFrom').value  = document.getElementById('from').value;
+        document.getElementById('cmpTo').value    = document.getElementById('to').value;
+        // Default compare index to the other main one
+        const mainIndex = document.getElementById('index').value;
+        document.getElementById('cmpIndex').value = mainIndex === 'cpi' ? 'construction' : 'cpi';
+      }
+    }
+
+    async function runCompare(e) {
+      const btn      = document.getElementById('cmpBtn');
+      const progress = document.getElementById('cmpBtnProgress');
+      const resultEl = document.getElementById('compareResults');
+
+      if (e) spawnRipple(btn, e);
+
+      const amount = document.getElementById('amount').value.replace(/,/g, '').trim();
+      const from   = document.getElementById('cmpFrom').value.trim();
+      const to     = document.getElementById('cmpTo').value.trim();
+      const index  = document.getElementById('cmpIndex').value;
+
+      if (!amount || !from) {
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:0.5rem 0;">Amount and From period are required (from the main form).</div>';
+        return;
+      }
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+      progress.classList.add('active');
+      resultEl.style.display = 'none';
+
+      const params = new URLSearchParams({ amount, from, index, format: 'json', secret: SECRET });
+      if (to) params.set('to', to);
+
+      try {
+        const res  = await fetch('/calc?' + params.toString());
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          resultEl.style.display = 'block';
+          resultEl.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:0.5rem 0;">' + (data.error || 'Comparison failed.') + '</div>';
+          return;
+        }
+        showCompareResult(data);
+      } catch (err) {
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:0.5rem 0;">Network error: ' + err.message + '</div>';
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        progress.classList.remove('active');
+      }
+    }
+
+    function showCompareResult(cmpData) {
+      // Read primary result data from the current form + DOM
+      const primAmount   = parseFloat(document.getElementById('amount').value.replace(/,/g,'')) || 0;
+      const primIndexed  = parseFloat(document.getElementById('resultMain').textContent.replace(/[₪,]/g,'')) || 0;
+      const primPeriodEl = document.getElementById('periodRow');
+      const primPeriod   = primPeriodEl ? primPeriodEl.textContent.replace(/\\s+/g,' ').trim() : '';
+      const primIndex    = document.getElementById('index').value.toUpperCase();
+      const cmpIndex     = document.getElementById('cmpIndex').value.toUpperCase();
+      const cmpSign      = cmpData.percentage >= 0 ? '+' : '';
+      const primPct      = primAmount > 0 ? (((primIndexed - primAmount) / primAmount) * 100).toFixed(2) : '—';
+      const primSign     = primAmount > 0 && ((primIndexed - primAmount) / primAmount) * 100 >= 0 ? '+' : '';
+
+      const diff         = Math.round(cmpData.indexedAmount - primIndexed);
+      const diffSign     = diff >= 0 ? '+' : '';
+      const diffColor    = diff >= 0 ? 'var(--green)' : 'var(--red)';
+
+      const container = document.getElementById('compareResults');
+      container.style.display = 'block';
+      container.innerHTML = \`
+        <div style="display:flex;gap:0.75rem;">
+          <div class="compare-slot">
+            <div class="compare-hero a">
+              <div class="compare-hero-label">\${primIndex}</div>
+              <div class="compare-hero-value">₪\${Math.round(primIndexed).toLocaleString('en-US')}</div>
+              <div class="compare-hero-pct">\${primSign}\${primPct}%</div>
+            </div>
+            <div class="compare-body">\${primPeriod}</div>
+          </div>
+          <div class="compare-slot">
+            <div class="compare-hero b">
+              <div class="compare-hero-label">\${cmpIndex}</div>
+              <div class="compare-hero-value">₪\${Math.round(cmpData.indexedAmount).toLocaleString('en-US')}</div>
+              <div class="compare-hero-pct">\${cmpSign}\${cmpData.percentage.toFixed(2)}%</div>
+            </div>
+            <div class="compare-body">\${cmpData.fromPeriod} → \${cmpData.toPeriod}</div>
+          </div>
+        </div>
+        <div class="compare-diff-row">
+          Difference: <strong style="color:\${diffColor}">\${diffSign}₪\${Math.abs(diff).toLocaleString('en-US')}</strong>
+        </div>
+      \`;
+    }
   </script>
   <div id="toast">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
