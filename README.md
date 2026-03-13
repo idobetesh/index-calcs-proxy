@@ -221,7 +221,9 @@ false
 =IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/market-status?market=nyse&format=text&secret=YOUR_SECRET")
 ```
 
-**Known limitations:** US early-close days (Thanksgiving eve, Christmas eve) and TASE Erev Chag early-close are not modeled. After-hours / pre-market sessions are not modeled.
+**TASE hours:** Monday–Thursday 09:59–17:25, Friday 09:59–14:00 (early close for Shabbat). Holiday-aware via Nager.Date.
+
+**Known limitations:** US early-close days (Thanksgiving eve, Christmas eve) and TASE Erev Chag (holiday eve) early-close are not modeled. After-hours / pre-market sessions are not modeled.
 
 `Cache-Control: no-store`
 

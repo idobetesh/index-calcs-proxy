@@ -32,6 +32,8 @@ export const MARKETS: Record<MarketKey, MarketConfig> = {
     openMinute: 59,
     closeHour: 17,
     closeMinute: 25,
+    fridayCloseHour: 14,
+    fridayCloseMinute: 0,
   },
   lse: {
     key: 'lse',
@@ -151,7 +153,14 @@ export async function getMarketStatus(market: MarketConfig, now: Date): Promise<
 
   const nowMins = local.hour * 60 + local.minute;
   const openMins = market.openHour * 60 + market.openMinute;
-  const closeMins = market.closeHour * 60 + market.closeMinute;
+  const isFriday = local.weekday === 5;
+  const effectiveCloseHour =
+    isFriday && market.fridayCloseHour !== undefined ? market.fridayCloseHour : market.closeHour;
+  const effectiveCloseMinute =
+    isFriday && market.fridayCloseMinute !== undefined
+      ? market.fridayCloseMinute
+      : market.closeMinute;
+  const closeMins = effectiveCloseHour * 60 + effectiveCloseMinute;
   if (nowMins < openMins || nowMins >= closeMins) {
     return {
       key: market.key,
