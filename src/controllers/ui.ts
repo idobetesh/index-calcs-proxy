@@ -1511,7 +1511,7 @@ function buildHtml(secret: string): string {
     };
 
     const MARKET_HOURS = {
-      tase: { openH:9,  openM:59, closeH:17, closeM:25, tradingDays:[1,2,3,4,5] },
+      tase: { openH:9,  openM:59, closeH:17, closeM:25, fridayCloseH:14, fridayCloseM:0, tradingDays:[1,2,3,4,5] },
       lse:  { openH:8,  openM:0,  closeH:16, closeM:30, tradingDays:[1,2,3,4,5] },
       nyse: { openH:9,  openM:30, closeH:16, closeM:0,  tradingDays:[1,2,3,4,5] },
       six:  { openH:9,  openM:0,  closeH:17, closeM:30, tradingDays:[1,2,3,4,5] },
@@ -1538,7 +1538,10 @@ function buildHtml(secret: string): string {
       const weekday = { Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6 }[get('weekday')] ?? 0;
       const nowMins  = curH * 60 + curM;
       const openMins = hrs.openH * 60 + hrs.openM;
-      const closeMins = hrs.closeH * 60 + hrs.closeM;
+      const isFriday = weekday === 5;
+      const effectiveCloseH = (isFriday && hrs.fridayCloseH !== undefined) ? hrs.fridayCloseH : hrs.closeH;
+      const effectiveCloseM = (isFriday && hrs.fridayCloseM !== undefined) ? hrs.fridayCloseM : hrs.closeM;
+      const closeMins = effectiveCloseH * 60 + effectiveCloseM;
       if (isOpen) {
         return 'Closes in ' + formatDuration(closeMins - nowMins);
       }
