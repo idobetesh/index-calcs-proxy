@@ -1025,6 +1025,9 @@ function buildHtml(secret: string): string {
           return;
         }
 
+        const hashParams = new URLSearchParams({ amount, from, index });
+        if (to) hashParams.set('to', to);
+        window.location.replace('#' + hashParams.toString());
         showResult(data);
       } catch (e) {
         showError('Network error: ' + e.message);
@@ -1264,6 +1267,22 @@ function buildHtml(secret: string): string {
     const amountEl = document.getElementById('amount');
     amountEl.addEventListener('focus', function() { stripAmountCommas(this); });
     amountEl.addEventListener('blur',  function() { formatAmountDisplay(this); });
+
+    // ── Restore from URL hash (overrides localStorage) ──
+    (function restoreFromHash() {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const p = new URLSearchParams(hash);
+      const amount = p.get('amount');
+      const from   = p.get('from');
+      const to     = p.get('to');
+      const index  = p.get('index');
+      if (amount) { const el = document.getElementById('amount'); el.value = amount; formatAmountDisplay(el); }
+      if (from)  document.getElementById('from').value  = from;
+      if (to)    document.getElementById('to').value    = to;
+      if (index) document.getElementById('index').value = index;
+      if (amount && from) calculate(null);
+    })();
 
     // ── Latest available periods ──
     let latestPeriods = {};
