@@ -897,6 +897,8 @@ function buildHtml(secret: string): string {
 
     </div>
 
+    <div id="validationMsg" style="display:none;margin-top:0.5rem;padding:0.5rem 0.75rem;background:var(--red-bg);border:1px solid var(--red-border);border-radius:8px;font-size:0.82rem;color:var(--red);font-weight:500;"></div>
+
     <div class="divider"></div>
 
     <div class="btn-wrap">
@@ -1014,6 +1016,24 @@ function buildHtml(secret: string): string {
       ripple.addEventListener('animationend', () => ripple.remove());
     }
 
+    // ── Inline validation ──
+    function validateInputs(amount, from, to) {
+      const msgEl = document.getElementById('validationMsg');
+      let msg = '';
+      if (!amount || !from) {
+        msg = 'Amount and From period are required.';
+      } else if (to && to <= from) {
+        msg = '"To" must be after "From" (' + from + ' \u2265 ' + to + ').';
+      }
+      if (msg) {
+        msgEl.textContent = msg;
+        msgEl.style.display = 'block';
+        return false;
+      }
+      msgEl.style.display = 'none';
+      return true;
+    }
+
     // ── Calculate ──
     async function calculate(e) {
       const btn      = document.getElementById('calcBtn');
@@ -1027,10 +1047,7 @@ function buildHtml(secret: string): string {
       const to     = document.getElementById('to').value.trim();
       const index  = document.getElementById('index').value;
 
-      if (!amount || !from) {
-        showError('Please fill in Amount and From period.');
-        return;
-      }
+      if (!validateInputs(amount, from, to)) return;
 
       btn.classList.add('loading');
       btn.disabled = true;
@@ -1094,6 +1111,8 @@ function buildHtml(secret: string): string {
     }
 
     function showResult(data) {
+      const valMsg = document.getElementById('validationMsg');
+      if (valMsg) valMsg.style.display = 'none';
       const resultEl  = document.getElementById('result');
       const pct       = data.percentage;
       const sign      = pct >= 0 ? '+' : '';
@@ -1326,6 +1345,18 @@ function buildHtml(secret: string): string {
       if (index) document.getElementById('index').value = index;
       if (amount && from) calculate(null);
     })();
+
+    document.getElementById('from').addEventListener('change', function() {
+      const a = document.getElementById('amount').value.replace(/,/g, '').trim();
+      const f = this.value.trim();
+      const t = document.getElementById('to').value.trim();
+      if (a || f) validateInputs(a, f, t);
+    });
+    document.getElementById('to').addEventListener('change', function() {
+      const a = document.getElementById('amount').value.replace(/,/g, '').trim();
+      const f = document.getElementById('from').value.trim();
+      validateInputs(a, f, this.value.trim());
+    });
 
     // ── Latest available periods ──
     let latestPeriods = {};
