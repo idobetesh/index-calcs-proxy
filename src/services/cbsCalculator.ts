@@ -84,7 +84,6 @@ export async function fetchCbsCalculation(
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
     const raw = (await response.json()) as CbsCalcResponse;
     const ans: CbsCalcAnswer = raw?.answer;
 
