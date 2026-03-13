@@ -1097,7 +1097,7 @@ function buildHtml(secret: string): string {
       const copyAmountBtn = document.getElementById('resultCopyBtn');
       if (copyWrap && copyAmountBtn) {
         copyWrap.style.display = 'block';
-        const amountText = '₪' + Math.round(data.indexedAmount).toLocaleString('en-US');
+        const amountText = String(Math.round(data.indexedAmount));
         copyAmountBtn.onclick = function() { copyFormula(this, amountText); };
       }
 
