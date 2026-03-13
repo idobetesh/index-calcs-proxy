@@ -105,6 +105,45 @@ describe('calculateCpi', () => {
     expect(result.indexedAmount).toBe(106000);
   });
 
+  it('handles deflation (negative monthlyPercent)', async () => {
+    const deflationEntries = [
+      { period: '2024-01', value: 100.0, monthlyPercent: 0.0 },
+      { period: '2024-02', value: 99.0, monthlyPercent: -1.0 },
+    ];
+    vi.spyOn(cbs, 'fetchIndexData').mockResolvedValue(deflationEntries);
+
+    const params: CalcParams = {
+      amount: 100000,
+      from: '2024-01',
+      to: '2024-02',
+      index: 'cpi',
+      format: 'text',
+    };
+
+    const result = await calculateCpi(params);
+
+    // multiplier = 0.99 → indexedAmount = 99000, percentage = -1.00
+    expect(result.indexedAmount).toBe(99000);
+    expect(result.difference).toBe(-1000);
+    expect(result.percentage).toBe(-1.0);
+    expect(result.indexedAmount).toBeLessThan(result.originalAmount);
+  });
+
+  it('throws when both chaining calc and CBS calculator fail', async () => {
+    vi.spyOn(cbs, 'fetchIndexData').mockRejectedValue(new Error('CBS unavailable'));
+    vi.spyOn(cbsCalc, 'fetchCbsCalculation').mockRejectedValue(new Error('Calculator unavailable'));
+
+    const params: CalcParams = {
+      amount: 100000,
+      from: '2024-01',
+      to: '2024-04',
+      index: 'cpi',
+      format: 'text',
+    };
+
+    await expect(calculateCpi(params)).rejects.toThrow('CPI calculation failed');
+  });
+
   it('returns correctly formatted result string', async () => {
     vi.spyOn(cbs, 'fetchIndexData').mockResolvedValue(MOCK_ENTRIES);
 

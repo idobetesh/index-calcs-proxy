@@ -9,6 +9,14 @@ describe('formatResult', () => {
   it('matches expected Google Sheets output format', () => {
     expect(formatResult(90465, 5.7)).toBe('₪90,465 / 5.70%');
   });
+
+  it('handles deflation (negative percentage)', () => {
+    expect(formatResult(99000, -1.0)).toBe('₪99,000 / -1.00%');
+  });
+
+  it('handles zero amount and zero percentage', () => {
+    expect(formatResult(0, 0)).toBe('₪0 / 0.00%');
+  });
 });
 
 describe('isValidPeriod', () => {

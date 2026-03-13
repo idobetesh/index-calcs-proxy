@@ -133,4 +133,27 @@ describe('fetchIndexData', () => {
     );
     await expect(fetchIndexData('cpi')).rejects.toThrow();
   });
+
+  it('filters out entries with null currBase', async () => {
+    // NaN is not tested here: JSON.stringify(NaN) → null, and isNaN(null) → false,
+    // so NaN values pass the filter undetected (dead-code path in production).
+    const responseWithBadEntries = {
+      month: [
+        {
+          code: 120010,
+          date: [
+            { year: 2024, month: 1, percent: 0.0, currBase: { value: 100.0 } }, // valid
+            { year: 2024, month: 2, percent: 1.0, currBase: null }, // null currBase — filtered
+            { year: 2024, month: 3, percent: 1.5, currBase: null }, // null currBase — filtered
+            { year: 2024, month: 4, percent: 0.5, currBase: { value: 103.0 } }, // valid
+          ],
+        },
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(responseWithBadEntries)));
+    const entries = await fetchIndexData('cpi');
+    expect(entries).toHaveLength(2);
+    expect(entries[0].period).toBe('2024-01');
+    expect(entries[1].period).toBe('2024-04');
+  });
 });

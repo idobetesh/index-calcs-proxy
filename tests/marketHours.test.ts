@@ -108,6 +108,108 @@ describe('TASE trading window', () => {
     const status = await getMarketStatus(MARKETS.tase, now);
     expect(status.open).toBe(false);
   });
+
+  // 2024-03-15 is a Friday (UTC+2 in March, before Israel DST switch)
+  it('open: Friday 10:00 Jerusalem (before 14:00 early close)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    // Friday 08:00 UTC = 10:00 Jerusalem (UTC+2)
+    const now = new Date('2024-03-15T08:00:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(true);
+  });
+
+  it('closed: Friday 14:01 Jerusalem (after early close)', async () => {
+    // Friday 12:01 UTC = 14:01 Jerusalem (UTC+2) — after 14:00 Friday close
+    const now = new Date('2024-03-15T12:01:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(false);
+  });
+
+  it('closed: Friday 15:00 Jerusalem (would be open on weekday but not Friday)', async () => {
+    // Friday 13:00 UTC = 15:00 Jerusalem — within Mon-Thu window but past Friday close
+    const now = new Date('2024-03-15T13:00:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(false);
+  });
+
+  // Boundary: exactly at open time
+  it('open: exactly 09:59 Jerusalem (boundary open)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    // Monday 07:59 UTC = 09:59 Jerusalem (UTC+2)
+    const now = new Date('2024-03-11T07:59:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(true);
+  });
+
+  // Boundary: exactly at Mon–Thu close time
+  it('closed: exactly 17:25 Jerusalem on Monday (boundary close)', async () => {
+    // Monday 15:25 UTC = 17:25 Jerusalem (UTC+2) — >= closeMins, so closed
+    const now = new Date('2024-03-11T15:25:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(false);
+  });
+
+  it('open: 17:24 Jerusalem on Monday (one minute before close)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    // Monday 15:24 UTC = 17:24 Jerusalem (UTC+2)
+    const now = new Date('2024-03-11T15:24:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(true);
+  });
+
+  // Boundary: exactly at Friday close
+  it('closed: exactly 14:00 Jerusalem on Friday (boundary Friday close)', async () => {
+    // Friday 12:00 UTC = 14:00 Jerusalem (UTC+2)
+    const now = new Date('2024-03-15T12:00:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(false);
+  });
+
+  it('open: 13:59 Jerusalem on Friday (one minute before Friday close)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    // Friday 11:59 UTC = 13:59 Jerusalem (UTC+2)
+    const now = new Date('2024-03-15T11:59:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(true);
+  });
+
+  // Israel DST: summer (UTC+3). Israel switched to summer time on 2024-03-29.
+  // 2024-07-05 is a Friday in summer.
+  it('open: summer Friday 10:00 Jerusalem (UTC+3, before 14:00)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    // Friday 07:00 UTC = 10:00 Jerusalem (UTC+3)
+    const now = new Date('2024-07-05T07:00:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(true);
+  });
+
+  it('closed: summer Friday 14:00 Jerusalem (UTC+3, Friday early close)', async () => {
+    // Friday 11:00 UTC = 14:00 Jerusalem (UTC+3)
+    const now = new Date('2024-07-05T11:00:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(false);
+  });
+
+  // Friday that is also a public holiday
+  it('closed: Friday within trading window but marked as holiday', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([{ date: '2024-03-15' }]), { status: 200 }),
+    );
+    // Friday 10:00 Jerusalem (UTC+2) = 08:00 UTC — within window, but holiday
+    const now = new Date('2024-03-15T08:00:00Z');
+    const status = await getMarketStatus(MARKETS.tase, now);
+    expect(status.open).toBe(false);
+  });
 });
 
 // ── NYSE DST ─────────────────────────────────────────────────────────────────

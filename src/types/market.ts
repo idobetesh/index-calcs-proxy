@@ -11,6 +11,8 @@ export interface MarketConfig {
   openMinute: number;
   closeHour: number;
   closeMinute: number;
+  fridayCloseHour?: number; // if set, overrides closeHour on Fridays
+  fridayCloseMinute?: number;
 }
 
 export interface MarketStatus {

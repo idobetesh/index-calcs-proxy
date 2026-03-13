@@ -2,6 +2,7 @@
   "name": "index-calcs-proxy",
   "version": "1.0.0",
   "private": true,
+  "author": "Ido Betesh",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
