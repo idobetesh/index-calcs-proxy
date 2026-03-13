@@ -903,6 +903,28 @@ function buildHtml(secret: string): string {
       text-align: center;
     }
     .compare-diff-row strong { color: var(--text); }
+    .hist-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+    .hist-row:hover {
+      background: var(--surface2);
+      border-color: var(--border);
+    }
+    .hist-period { color: var(--text-muted); font-size: 0.78rem; }
+    .hist-index  { color: var(--text-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .hist-amount { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .hist-pct    { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600; }
+    .hist-pct.positive { color: var(--green); }
+    .hist-pct.negative { color: var(--red); }
   </style>
 </head>
 <body>
@@ -1046,6 +1068,11 @@ function buildHtml(secret: string): string {
       </div>
       <div id="compareResults" style="display:none;margin-top:1rem;"></div>
     </div>
+    <div id="historyToggle" style="display:none;align-items:center;justify-content:space-between;margin-top:1.25rem;cursor:pointer;user-select:none;" onclick="toggleHistory()">
+      <span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">History</span>
+      <span id="historyChevron" style="font-size:0.75rem;color:var(--text-muted);">&#9660;</span>
+    </div>
+    <div id="historyList" style="display:none;margin-top:0.5rem;"></div>
   </div>
 
   <div class="col-right">
@@ -1238,6 +1265,13 @@ function buildHtml(secret: string): string {
     function showResult(data) {
       const valMsg = document.getElementById('validationMsg');
       if (valMsg) valMsg.style.display = 'none';
+      const _histInputs = {
+        amount: document.getElementById('amount').value.replace(/,/g, '').trim(),
+        from: document.getElementById('from').value.trim(),
+        to: document.getElementById('to').value.trim(),
+        index: document.getElementById('index').value,
+      };
+      saveHistory(_histInputs, data);
       const resultEl  = document.getElementById('result');
       const pct       = data.percentage;
       const sign      = pct >= 0 ? '+' : '';
@@ -1441,6 +1475,86 @@ function buildHtml(secret: string): string {
     }
 
     restoreInputs();
+
+    // ── Calculation History ──
+    let historyOpen = false;
+
+    function toggleHistory() {
+      historyOpen = !historyOpen;
+      const list    = document.getElementById('historyList');
+      const chevron = document.getElementById('historyChevron');
+      if (list)    list.style.display    = historyOpen ? 'block' : 'none';
+      if (chevron) chevron.textContent   = historyOpen ? '▲' : '▼';
+    }
+
+    function saveHistory(inputs, result) {
+      const entry = {
+        amount: inputs.amount,
+        from: inputs.from,
+        to: inputs.to,
+        index: inputs.index,
+        indexedAmount: result.indexedAmount,
+        percentage: result.percentage,
+        fromPeriod: result.fromPeriod,
+        toPeriod: result.toPeriod,
+        ts: Date.now(),
+      };
+      try {
+        const hist = JSON.parse(localStorage.getItem('calc-history') || '[]');
+        const deduped = hist.filter(function(h) {
+          return !(h.amount === entry.amount && h.from === entry.from && h.to === entry.to && h.index === entry.index);
+        });
+        deduped.unshift(entry);
+        localStorage.setItem('calc-history', JSON.stringify(deduped.slice(0, 10)));
+      } catch (_) {}
+      renderHistory();
+      if (!historyOpen) {
+        historyOpen = true;
+        const l = document.getElementById('historyList');
+        const c = document.getElementById('historyChevron');
+        if (l) l.style.display = 'block';
+        if (c) c.textContent = '▲';
+      }
+    }
+
+    function restoreHistoryEntry(entry) {
+      document.getElementById('amount').value = entry.amount;
+      formatAmountDisplay(document.getElementById('amount'));
+      document.getElementById('from').value  = entry.from;
+      document.getElementById('to').value    = entry.to   || '';
+      document.getElementById('index').value = entry.index;
+      updateLatestBadge();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('historyList');
+      if (!container) return;
+      let hist = [];
+      try { hist = JSON.parse(localStorage.getItem('calc-history') || '[]'); } catch (_) {}
+      const toggle = document.getElementById('historyToggle');
+      if (!hist.length) {
+        if (toggle) toggle.style.display = 'none';
+        container.innerHTML = '';
+        return;
+      }
+      if (toggle) toggle.style.display = 'flex';
+      container.innerHTML = hist.map(function(h, i) {
+        const sign = h.percentage >= 0 ? '+' : '';
+        const cls  = h.percentage >= 0 ? 'positive' : 'negative';
+        const label = h.index.toUpperCase();
+        const toStr = h.to ? ' \u2192 ' + h.toPeriod : ' \u2192 latest';
+        return '<div class="hist-row" onclick="restoreHistoryEntry(histEntries[' + i + '])">' +
+          '<span class="hist-period">' + h.fromPeriod + toStr + '</span>' +
+          '<span class="hist-index">' + label + '</span>' +
+          '<span class="hist-amount">\u20aa' + Math.round(h.indexedAmount).toLocaleString('en-US') + '</span>' +
+          '<span class="hist-pct ' + cls + '">' + sign + h.percentage.toFixed(2) + '%</span>' +
+          '</div>';
+      }).join('');
+      window.histEntries = hist;
+    }
+
+    renderHistory();
 
     // ── Amount formatter ──
     // Allow free typing while focused; format with commas on blur.
