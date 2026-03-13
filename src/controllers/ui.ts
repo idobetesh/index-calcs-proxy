@@ -914,6 +914,12 @@ function buildHtml(secret: string): string {
         <div class="result-hero-label" id="resultLabel">Result</div>
         <div class="result-hero-value" id="resultMain"></div>
         <div class="result-hero-sub" id="resultSub"></div>
+        <div id="resultCopyWrap" style="margin-top:0.6rem;display:none;">
+          <button class="copy-btn" id="resultCopyBtn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy amount
+          </button>
+        </div>
       </div>
       <div class="result-body" id="resultBody">
         <div class="stat-grid" id="statGrid"></div>
@@ -1067,6 +1073,8 @@ function buildHtml(secret: string): string {
       document.getElementById('statGrid').innerHTML = '';
       document.getElementById('periodRow').innerHTML = '';
       document.getElementById('sheetsBox').innerHTML = '';
+      const copyWrap = document.getElementById('resultCopyWrap');
+      if (copyWrap) copyWrap.style.display = 'none';
     }
 
     // ── Animated counter ──
@@ -1105,6 +1113,15 @@ function buildHtml(secret: string): string {
       // Animate main hero number
       const heroEl = document.getElementById('resultMain');
       animateCount(heroEl, data.indexedAmount, '₪', '', 700);
+
+      // Show copy-amount button
+      const copyWrap = document.getElementById('resultCopyWrap');
+      const copyAmountBtn = document.getElementById('resultCopyBtn');
+      if (copyWrap && copyAmountBtn) {
+        copyWrap.style.display = 'block';
+        const amountText = String(Math.round(data.indexedAmount));
+        copyAmountBtn.onclick = function() { copyFormula(this, amountText); };
+      }
 
       document.getElementById('statGrid').innerHTML = \`
         <div class="stat">
@@ -1665,7 +1682,7 @@ function buildHtml(secret: string): string {
   </script>
   <div id="toast">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-    Formula copied to clipboard
+    Copied to clipboard
   </div>
 </body>
 </html>`;
