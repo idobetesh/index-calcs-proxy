@@ -153,7 +153,7 @@ describe('fetchIndexData', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(responseWithBadEntries)));
     const entries = await fetchIndexData('cpi');
     expect(entries).toHaveLength(2);
-    expect(entries[0].period).toBe('2024-01');
-    expect(entries[1].period).toBe('2024-04');
+    expect(entries[0]?.period).toBe('2024-01');
+    expect(entries[1]?.period).toBe('2024-04');
   });
 });
