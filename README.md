@@ -1,14 +1,16 @@
 # index-calcs-proxy
 
-[![Deploy](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy.yml/badge.svg?branch=master)](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy.yml)
-[![Deploy Apps Script](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy-gs.yml/badge.svg?branch=master)](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy-gs.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Hono](https://img.shields.io/badge/Hono-4.4-orange?logo=hono&logoColor=white)](https://hono.dev/)
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
-[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/idobetesh/13d12fa7c5d211a509b87a343c3258dc/raw/index-calcs-proxy-coverage.json)](https://github.com/idobetesh/index-calcs-proxy/actions/workflows/ci.yml)
-[![Google Apps Script](https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white)](gs/ONBOARDING.md)
+<p align="center">
+  <a href="https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy.yml"><img src="https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy.yml/badge.svg?branch=master" alt="Deploy" /></a>
+  <a href="https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy-gs.yml"><img src="https://github.com/idobetesh/index-calcs-proxy/actions/workflows/deploy-gs.yml/badge.svg?branch=master" alt="Deploy Apps Script" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.4-blue?logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="https://hono.dev/"><img src="https://img.shields.io/badge/Hono-4.4-orange?logo=hono&logoColor=white" alt="Hono" /></a>
+  <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers" /></a>
+  <a href="https://github.com/idobetesh/index-calcs-proxy/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/idobetesh/13d12fa7c5d211a509b87a343c3258dc/raw/index-calcs-proxy-coverage.json" alt="Coverage" /></a>
+  <a href="gs/ONBOARDING.md"><img src="https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white" alt="Google Apps Script" /></a>
+</p>
 
-A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Statistics (CBS) calculator API and returns plain-text results consumable directly by Google Sheets `IMPORTDATA`.
+<p align="center">A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Statistics (CBS) calculator API and returns plain-text results consumable directly by Google Sheets <code>IMPORTDATA</code>.</p>
 
 ---
 

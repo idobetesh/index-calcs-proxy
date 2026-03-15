@@ -714,6 +714,17 @@ function buildHtml(secret: string): string {
     .latest-badge.fresh  { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
     .latest-badge.stale  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border); }
     .latest-badge.medium { background: rgba(251,191,36,0.12); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+    .next-pub-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin-top: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .next-pub-chip a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    .next-pub-chip a:hover { text-decoration: underline; }
+    .next-pub-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); opacity: 0.6; flex-shrink: 0; }
     .duration-chip {
       font-size: 0.72rem;
       color: var(--text-muted);
@@ -991,6 +1002,7 @@ function buildHtml(secret: string): string {
             <option value="housing">Housing Price Index</option>
           </select>
         </div>
+        <div id="nextPublishChip"></div>
       </div>
 
     </div>
@@ -1610,6 +1622,67 @@ function buildHtml(secret: string): string {
       } catch (_) {}
     }
 
+    // ── Next CBS publication date ──
+    // Rule: 15th of each month at 18:30 Israel time.
+    // If 15th is Friday → 14:00. If 15th is Saturday → 14th at 14:00.
+    function computeNextPublish() {
+      const now = new Date();
+      const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Jerusalem',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', hour12: false,
+      });
+      const parts = fmt.formatToParts(now);
+      const gp = t => parseInt(parts.find(p => p.type === t)?.value ?? '0');
+      let nowY = gp('year'), nowM = gp('month'), nowD = gp('day');
+      let nowH = gp('hour'), nowMi = gp('minute');
+      if (nowH === 24) nowH = 0;
+
+      for (let offset = 0; offset <= 3; offset++) {
+        let pubM = nowM + offset, pubY = nowY;
+        if (pubM > 12) { pubM -= 12; pubY++; }
+
+        let pubD = 15, pubH = 18, pubMi = 30;
+        const dow = new Date(pubY, pubM - 1, 15).getDay(); // 0=Sun 5=Fri 6=Sat
+        if (dow === 6) { pubD = 14; pubH = 14; pubMi = 0; }   // Sat → 14th 14:00
+        else if (dow === 5) { pubH = 14; pubMi = 0; }          // Fri → 14:00
+
+        const isPast =
+          pubY < nowY ||
+          (pubY === nowY && pubM < nowM) ||
+          (pubY === nowY && pubM === nowM && pubD < nowD) ||
+          (pubY === nowY && pubM === nowM && pubD === nowD && pubH < nowH) ||
+          (pubY === nowY && pubM === nowM && pubD === nowD && pubH === nowH && pubMi <= nowMi);
+
+        if (!isPast) {
+          const pubDate  = new Date(pubY, pubM - 1, pubD);
+          const nowDate  = new Date(nowY, nowM - 1, nowD);
+          const daysAway = Math.round((pubDate - nowDate) / 86400000);
+          const months   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          return {
+            dateStr: months[pubM - 1] + ' ' + pubD,
+            timeStr: pubH + ':' + String(pubMi).padStart(2, '0'),
+            daysStr: daysAway === 0 ? 'today' : daysAway === 1 ? 'tomorrow' : 'in ' + daysAway + ' days',
+          };
+        }
+      }
+      return null;
+    }
+
+    function updateNextPublishChip() {
+      const chip = document.getElementById('nextPublishChip');
+      if (!chip) return;
+      const info = computeNextPublish();
+      if (!info) { chip.innerHTML = ''; return; }
+      chip.innerHTML =
+        '<span class="next-pub-chip">' +
+        '<span class="next-pub-dot"></span>' +
+        'Next CBS publication: <strong>' + info.dateStr + ' · ' + info.timeStr + '</strong>' +
+        ' <span>(' + info.daysStr + ')</span>' +
+        ' · <a href="https://www.cbs.gov.il/he/Pages/\u05ea\u05d7\u05d6\u05d9\u05ea-\u05e4\u05e8\u05e1\u05d5\u05dd.aspx" target="_blank" rel="noopener noreferrer">schedule \u2197</a>' +
+        '</span>';
+    }
+
     function updateLatestBadge() {
       const index   = document.getElementById('index').value;
       const period  = latestPeriods[index];
@@ -1622,9 +1695,11 @@ function buildHtml(secret: string): string {
       const cls       = monthsAgo <= 2 ? 'fresh' : monthsAgo <= 4 ? 'medium' : 'stale';
       const ago       = monthsAgo === 0 ? 'this month' : monthsAgo === 1 ? '1 mo ago' : monthsAgo + ' mos ago';
       badge.innerHTML = \`<span class="latest-badge \${cls}">CBS latest: \${period} · \${ago}</span>\`;
+      updateNextPublishChip();
     }
 
     fetchLatest();
+    updateNextPublishChip();
 
     // ── Ticker ──
     const TICKER_ITEMS = [
