@@ -21,7 +21,10 @@ export const calcQuerySchema = z.object({
 export const etfQuerySchema = z.object({
   id: z
     .string()
-    .regex(/^\d{6,10}$/, 'Missing or invalid "id". Must be a 6–10 digit security number.'),
+    .regex(
+      /^(\d{6,10}|[A-Za-z][A-Za-z0-9.\-]{0,19})$/,
+      'Missing or invalid "id". Must be a TASE security number (6–10 digits) or a ticker symbol (e.g. AAPL, TEVA.TA).',
+    ),
   format: z.enum(['text', 'json'] as const).default('text'),
 });
 
@@ -34,6 +37,29 @@ export const marketStatusQuerySchema = z.object({
   format: z.enum(['text', 'json'] as const).default('json'),
 });
 
+export const stockQuerySchema = z.object({
+  ticker: z
+    .string()
+    .regex(
+      /^[A-Za-z0-9.\-]{1,20}$/,
+      'Missing or invalid "ticker". Must be a valid stock/ETF symbol (e.g. AAPL, TEVA.TA, BRK-B).',
+    ),
+  format: z.enum(['text', 'json'] as const).default('json'),
+});
+
+export const stockSearchQuerySchema = z.object({
+  q: z
+    .string()
+    .min(1, 'Search query "q" is required.')
+    .max(50, 'Search query too long.')
+    .regex(
+      /^[A-Za-z0-9.\- ]+$/,
+      'Search query must contain only letters, numbers, spaces, dots, or hyphens.',
+    ),
+});
+
 export type CalcQuery = z.infer<typeof calcQuerySchema>;
 export type EtfQuery = z.infer<typeof etfQuerySchema>;
 export type MarketStatusQuery = z.infer<typeof marketStatusQuerySchema>;
+export type StockQuery = z.infer<typeof stockQuerySchema>;
+export type StockSearchQuery = z.infer<typeof stockSearchQuerySchema>;

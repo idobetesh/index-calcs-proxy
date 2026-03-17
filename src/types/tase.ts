@@ -1,4 +1,4 @@
-export interface EtfQuote {
+export interface TaseQuote {
   id: string;
   name: string;
   price: number;
