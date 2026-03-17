@@ -1,4 +1,4 @@
-import { EtfQuote, MayaFundResponse, TaseInDayResponse } from '../types/etf.js';
+import { EtfQuote, JinaSource, MayaFundResponse, TaseInDayResponse } from '../types/etf.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
 
 export type { EtfQuote };
@@ -95,13 +95,6 @@ async function fetchTaseInDay(id: string): Promise<EtfQuote> {
   };
 }
 
-interface JinaSource {
-  name: string;
-  url: (id: string) => string;
-  /** Extract price from Jina-rendered markdown. Return null if not found. */
-  parse: (content: string) => number | null;
-}
-
 /**
  * Jina-renderable sources. Each entry is tried in order when all direct API
  * sources fail. Jina (r.jina.ai) runs a headless browser server-side, making
@@ -110,7 +103,7 @@ interface JinaSource {
  * To add a new source: add an entry with the page URL and a price parser.
  * Funder.co.il was evaluated but blocks all requests (HTTP 403) — excluded.
  */
-const JINA_SOURCES: JinaSource[] = [
+export const JINA_SOURCES: JinaSource[] = [
   {
     name: 'jina-tase',
     url: (id) => `https://market.tase.co.il/en/market_data/security/${id}/major_data`,

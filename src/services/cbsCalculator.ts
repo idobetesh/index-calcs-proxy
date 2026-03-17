@@ -1,30 +1,9 @@
-import { INDEX_IDS, IndexType } from '../types/cbs.js';
+import { CbsCalcAnswer, CbsCalcResponse, INDEX_IDS, IndexType } from '../types/cbs.js';
 import { CalcParams, CalcResult } from '../types/calc.js';
 import { formatResult } from '../utils/format.js';
 
 const CBS_CALC_BASE = 'https://api.cbs.gov.il/index/data/calculator';
 const TIMEOUT_MS = 10_000;
-
-interface CbsCalcAnswer {
-  from_value: number;
-  to_value: number;
-  from_index_date: string; // "YYYY-M" or "YYYY-M/YYYY-M" (housing bimonthly)
-  to_index_date: string;
-  from_index_value: number;
-  to_index_value: number;
-  chaining_coefficient: number;
-  change_percent: number;
-}
-
-interface CbsCalcResponse {
-  request: {
-    code: number;
-    sum: number;
-    from_date: string;
-    to_date: string;
-  };
-  answer: CbsCalcAnswer;
-}
 
 /**
  * Converts "YYYY-MM" → "MM-01-YYYY" for CBS calculator API.
