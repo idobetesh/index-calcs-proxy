@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import app from '../src/index.js';
-import * as etfService from '../src/services/etf.js';
+import * as taseService from '../src/services/tase.js';
 
 const MOCK_QUOTE = {
   id: '5119466',
@@ -23,22 +23,22 @@ beforeEach(() => {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-describe('GET /etf - auth', () => {
+describe('GET /price - auth', () => {
   it('returns 401 without secret', async () => {
-    const req = makeRequest('/etf?id=5119466');
+    const req = makeRequest('/price?id=5119466');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(401);
   });
 
   it('returns 401 with wrong secret', async () => {
-    const req = makeRequest('/etf?id=5119466&secret=wrong');
+    const req = makeRequest('/price?id=5119466&secret=wrong');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(401);
   });
 
   it('accepts secret via Authorization header', async () => {
-    vi.spyOn(etfService, 'fetchEtfQuote').mockResolvedValue(MOCK_QUOTE);
-    const req = makeRequest('/etf?id=5119466', { Authorization: 'Bearer test-secret' });
+    vi.spyOn(taseService, 'fetchTaseQuote').mockResolvedValue(MOCK_QUOTE);
+    const req = makeRequest('/price?id=5119466', { Authorization: 'Bearer test-secret' });
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
   });
@@ -46,29 +46,29 @@ describe('GET /etf - auth', () => {
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-describe('GET /etf - validation', () => {
+describe('GET /price - validation', () => {
   it('returns 400 when id is missing', async () => {
-    const req = makeRequest('/etf?secret=test-secret');
+    const req = makeRequest('/price?secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body).toHaveProperty('error', expect.stringMatching(/id/i));
   });
 
-  it('returns 400 when id contains letters', async () => {
-    const req = makeRequest('/etf?id=abc123&secret=test-secret');
+  it('returns 400 when id is a single digit (not a valid TASE number or ticker)', async () => {
+    const req = makeRequest('/price?id=1&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when id is too short (< 6 digits)', async () => {
-    const req = makeRequest('/etf?id=12345&secret=test-secret');
+    const req = makeRequest('/price?id=12345&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when id is too long (> 10 digits)', async () => {
-    const req = makeRequest('/etf?id=12345678901&secret=test-secret');
+    const req = makeRequest('/price?id=12345678901&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(400);
   });
@@ -76,10 +76,10 @@ describe('GET /etf - validation', () => {
 
 // ── Text response ─────────────────────────────────────────────────────────────
 
-describe('GET /etf - text response', () => {
+describe('GET /price - text response', () => {
   it('returns plain numeric price by default', async () => {
-    vi.spyOn(etfService, 'fetchEtfQuote').mockResolvedValue(MOCK_QUOTE);
-    const req = makeRequest('/etf?id=5119466&secret=test-secret');
+    vi.spyOn(taseService, 'fetchTaseQuote').mockResolvedValue(MOCK_QUOTE);
+    const req = makeRequest('/price?id=5119466&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/plain');
@@ -88,8 +88,8 @@ describe('GET /etf - text response', () => {
   });
 
   it('sets Cache-Control: public, max-age on text response', async () => {
-    vi.spyOn(etfService, 'fetchEtfQuote').mockResolvedValue(MOCK_QUOTE);
-    const req = makeRequest('/etf?id=5119466&secret=test-secret');
+    vi.spyOn(taseService, 'fetchTaseQuote').mockResolvedValue(MOCK_QUOTE);
+    const req = makeRequest('/price?id=5119466&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.headers.get('cache-control')).toMatch(/public.*max-age/);
   });
@@ -97,10 +97,10 @@ describe('GET /etf - text response', () => {
 
 // ── JSON response ─────────────────────────────────────────────────────────────
 
-describe('GET /etf - JSON response', () => {
+describe('GET /price - JSON response', () => {
   it('returns full EtfQuote object when format=json', async () => {
-    vi.spyOn(etfService, 'fetchEtfQuote').mockResolvedValue(MOCK_QUOTE);
-    const req = makeRequest('/etf?id=5119466&format=json&secret=test-secret');
+    vi.spyOn(taseService, 'fetchTaseQuote').mockResolvedValue(MOCK_QUOTE);
+    const req = makeRequest('/price?id=5119466&format=json&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('application/json');
@@ -118,12 +118,12 @@ describe('GET /etf - JSON response', () => {
 
 // ── Error handling ────────────────────────────────────────────────────────────
 
-describe('GET /etf - upstream errors', () => {
+describe('GET /price - upstream errors', () => {
   it('returns 502 when all sources fail', async () => {
-    vi.spyOn(etfService, 'fetchEtfQuote').mockRejectedValue(
+    vi.spyOn(taseService, 'fetchTaseQuote').mockRejectedValue(
       new Error('All sources failed for ETF "5119466"'),
     );
-    const req = makeRequest('/etf?id=5119466&secret=test-secret');
+    const req = makeRequest('/price?id=5119466&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(502);
     const body = await res.json();
@@ -131,10 +131,10 @@ describe('GET /etf - upstream errors', () => {
   });
 
   it('returns 404 with error message when security is not found', async () => {
-    vi.spyOn(etfService, 'fetchEtfQuote').mockRejectedValue(
+    vi.spyOn(taseService, 'fetchTaseQuote').mockRejectedValue(
       new Error('Security "9999999" not found. Please check the TASE security number.'),
     );
-    const req = makeRequest('/etf?id=9999999&secret=test-secret');
+    const req = makeRequest('/price?id=9999999&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -142,9 +142,9 @@ describe('GET /etf - upstream errors', () => {
   });
 });
 
-// ── fetchEtfQuote - fallback logic ────────────────────────────────────────────
+// ── fetchTaseQuote - fallback logic ────────────────────────────────────────────
 
-describe('fetchEtfQuote - source fallback', () => {
+describe('fetchTaseQuote - source fallback', () => {
   it('returns first source result on success', async () => {
     const mockFetch = vi
       .fn()
@@ -156,7 +156,7 @@ describe('fetchEtfQuote - source fallback', () => {
       );
     vi.stubGlobal('fetch', mockFetch);
 
-    const quote = await etfService.fetchEtfQuote('5119466');
+    const quote = await taseService.fetchTaseQuote('5119466');
     expect(quote.price).toBe(12345);
     expect(quote.source).toBe('maya-mutual');
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -178,7 +178,7 @@ describe('fetchEtfQuote - source fallback', () => {
     });
     vi.stubGlobal('fetch', mockFetch);
 
-    const quote = await etfService.fetchEtfQuote('1150572');
+    const quote = await taseService.fetchTaseQuote('1150572');
     expect(quote.price).toBe(99900);
     expect(quote.source).toBe('maya-etf');
     expect(callCount).toBe(2);
@@ -187,7 +187,7 @@ describe('fetchEtfQuote - source fallback', () => {
   it('throws "not found" error when all sources return 404', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Not Found', { status: 404 })));
 
-    await expect(etfService.fetchEtfQuote('0000001')).rejects.toThrow(
+    await expect(taseService.fetchTaseQuote('0000001')).rejects.toThrow(
       'Security "0000001" not found',
     );
   });
@@ -198,7 +198,7 @@ describe('fetchEtfQuote - source fallback', () => {
       vi.fn().mockResolvedValue(new Response('Server Error', { status: 500 })),
     );
 
-    await expect(etfService.fetchEtfQuote('5119466')).rejects.toThrow('All sources failed');
+    await expect(taseService.fetchTaseQuote('5119466')).rejects.toThrow('All sources failed');
   });
 
   it('uses redemptionPrice as fallback when purchasePrice is absent', async () => {
@@ -214,7 +214,7 @@ describe('fetchEtfQuote - source fallback', () => {
         ),
     );
 
-    const quote = await etfService.fetchEtfQuote('5119466');
+    const quote = await taseService.fetchTaseQuote('5119466');
     expect(quote.price).toBe(55000);
   });
 });

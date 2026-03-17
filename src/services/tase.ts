@@ -1,7 +1,7 @@
-import { EtfQuote, MayaFundResponse, TaseInDayResponse } from '../types/etf.js';
+import { TaseQuote, MayaFundResponse, TaseInDayResponse } from '../types/tase.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
 
-export type { EtfQuote };
+export type { TaseQuote };
 
 const TIMEOUT_MS = 8_000;
 
@@ -9,7 +9,7 @@ const TIMEOUT_MS = 8_000;
  * Source 1: Maya TASE mutual funds API.
  * Covers open-ended funds — security IDs typically starting with 5.
  */
-async function fetchMayaMutual(id: string): Promise<EtfQuote> {
+async function fetchMayaMutual(id: string): Promise<TaseQuote> {
   const res = await fetchWithTimeout(
     `https://maya.tase.co.il/api/v1/funds/mutual/${id}`,
     { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
@@ -34,7 +34,7 @@ async function fetchMayaMutual(id: string): Promise<EtfQuote> {
  * Source 2: Maya TASE ETF API.
  * Covers Israeli basket ETFs (קרנות סל) — security IDs typically starting with 1.
  */
-async function fetchMayaEtf(id: string): Promise<EtfQuote> {
+async function fetchMayaEtf(id: string): Promise<TaseQuote> {
   const res = await fetchWithTimeout(
     `https://maya.tase.co.il/api/v1/funds/etf/${id}`,
     { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
@@ -59,7 +59,7 @@ async function fetchMayaEtf(id: string): Promise<EtfQuote> {
  * Source 3: TASE intraday API.
  * Covers foreign ETFs and other securities not available via the Maya funds API.
  */
-async function fetchTaseInDay(id: string): Promise<EtfQuote> {
+async function fetchTaseInDay(id: string): Promise<TaseQuote> {
   const oid = id.padStart(8, '0');
   const url = `https://api.tase.co.il/api/charts/getindaydata?ct=0&ot=1&lang=1&cf=0&cp=0&cv=0&cl=0&cgt=1&dFrom=&dTo=&oid=${oid}`;
   const res = await fetchWithTimeout(
@@ -146,7 +146,7 @@ const JINA_SOURCES: JinaSource[] = [
 /**
  * Fetches a page via Jina Reader and extracts the price using the source's parser.
  */
-async function fetchViaJina(id: string, source: JinaSource): Promise<EtfQuote> {
+async function fetchViaJina(id: string, source: JinaSource): Promise<TaseQuote> {
   const res = await fetchWithTimeout(
     `https://r.jina.ai/${source.url(id)}`,
     { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
@@ -169,11 +169,11 @@ async function fetchViaJina(id: string, source: JinaSource): Promise<EtfQuote> {
  * via Promise.any() — the first to succeed wins.
  * Throws only if everything fails.
  */
-export async function fetchEtfQuote(id: string): Promise<EtfQuote> {
-  const directSources: Array<() => Promise<EtfQuote>> = [
-    (): Promise<EtfQuote> => fetchMayaMutual(id),
-    (): Promise<EtfQuote> => fetchMayaEtf(id),
-    (): Promise<EtfQuote> => fetchTaseInDay(id),
+export async function fetchTaseQuote(id: string): Promise<TaseQuote> {
+  const directSources: Array<() => Promise<TaseQuote>> = [
+    (): Promise<TaseQuote> => fetchMayaMutual(id),
+    (): Promise<TaseQuote> => fetchMayaEtf(id),
+    (): Promise<TaseQuote> => fetchTaseInDay(id),
   ];
 
   const directErrors: string[] = [];

@@ -936,6 +936,60 @@ function buildHtml(secret: string): string {
     .hist-pct    { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600; }
     .hist-pct.positive { color: var(--green); }
     .hist-pct.negative { color: var(--red); }
+
+    /* ── Autocomplete dropdown ── */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0; right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border-focus);
+      border-radius: 8px;
+      z-index: 200;
+      max-height: 240px;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .autocomplete-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      font-size: 0.82rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover, .autocomplete-item.ac-active { background: var(--accent-dim); }
+    .ac-ticker {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--accent);
+      flex-shrink: 0;
+      min-width: 5rem;
+    }
+    .ac-name {
+      color: var(--text-muted);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ac-exchange {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .autocomplete-loading, .autocomplete-empty {
+      padding: 0.6rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -1090,35 +1144,38 @@ function buildHtml(secret: string): string {
   <div class="col-right">
   <div class="card">
     <div class="card-header">
-      <div class="badge">📈 Israeli ETFs</div>
-      <h1>ETF Price Lookup</h1>
-      <p>Current NAV/price by TASE security number (מספר ני&quot;ע)</p>
+      <div class="badge">📈 Securities</div>
+      <h1>Price Lookup</h1>
+      <p>TASE security number or ticker symbol (e.g. 5119466, AAPL, TEVA.TA)</p>
     </div>
 
     <div class="field">
-      <label for="etfId">Security Number</label>
-      <input type="text" id="etfId" placeholder="e.g. 5119466, 1150572…" inputmode="numeric" autocomplete="off" />
+      <label for="secId">Security / Ticker</label>
+      <div class="autocomplete-wrap">
+        <input type="text" id="secId" placeholder="e.g. 5119466, AAPL, TEVA.TA, SPY…" autocomplete="off" spellcheck="false" />
+        <div id="secAutocomplete" class="autocomplete-dropdown" style="display:none;"></div>
+      </div>
     </div>
 
     <div class="divider"></div>
 
     <div class="btn-wrap">
-      <button class="btn" id="etfBtn" onclick="lookupEtf(event)">
+      <button class="btn" id="secBtn" onclick="lookupSecurity(event)">
         <div class="spinner"></div>
         <span class="btn-text">Look Up</span>
       </button>
-      <div class="btn-progress" id="etfBtnProgress">
+      <div class="btn-progress" id="secBtnProgress">
         <div class="btn-progress-bar"></div>
       </div>
     </div>
 
-    <div class="result" id="etfResult">
-      <div class="result-hero" id="etfResultHero">
-        <div class="result-hero-label" id="etfResultLabel">Price</div>
-        <div class="result-hero-value" id="etfResultMain"></div>
-        <div class="result-hero-sub" id="etfResultSub"></div>
+    <div class="result" id="secResult">
+      <div class="result-hero" id="secResultHero">
+        <div class="result-hero-label" id="secResultLabel">Price</div>
+        <div class="result-hero-value" id="secResultMain"></div>
+        <div class="result-hero-sub" id="secResultSub"></div>
       </div>
-      <div class="result-body" id="etfResultBody"></div>
+      <div class="result-body" id="secResultBody"></div>
     </div>
   </div>
 
@@ -1804,16 +1861,126 @@ function buildHtml(secret: string): string {
     fetchTicker();
     setInterval(fetchTicker, 60_000);
 
-    // ── ETF Lookup ──
-    async function lookupEtf(e) {
-      const btn      = document.getElementById('etfBtn');
-      const progress = document.getElementById('etfBtnProgress');
-      const resultEl = document.getElementById('etfResult');
+    // ── Allow Enter key to submit ──
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      if (document.activeElement && document.activeElement.id === 'secId') {
+        if (document.getElementById('secAutocomplete').style.display !== 'none') {
+          const active = document.querySelector('.ac-active');
+          if (active) { active.click(); return; }
+        }
+        lookupSecurity();
+      } else {
+        calculate();
+      }
+    });
+
+    // ── Securities Lookup (TASE numbers + ticker symbols) ──
+    (function() {
+      const input    = document.getElementById('secId');
+      const dropdown = document.getElementById('secAutocomplete');
+      let debounceTimer = null;
+      let acIndex = -1;
+
+      // Allow only letters, digits, dot, hyphen
+      input.addEventListener('keydown', function(e) {
+        const allowed = /^[A-Za-z0-9.\-]$/;
+        if (e.key.length === 1 && !allowed.test(e.key) && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+        }
+      });
+
+      input.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        const cleaned = text.replace(/[^A-Za-z0-9.\-]/g, '').toUpperCase();
+        document.execCommand('insertText', false, cleaned);
+      });
+
+      input.addEventListener('input', function() {
+        const q = input.value.trim();
+        acIndex = -1;
+        clearTimeout(debounceTimer);
+        // Only autocomplete for ticker-style input (has at least one letter)
+        if (q.length < 1 || /^\d+$/.test(q)) { hideDropdown(); return; }
+        dropdown.innerHTML = '<div class="autocomplete-loading">Searching…</div>';
+        dropdown.style.display = 'block';
+        debounceTimer = setTimeout(function() { runSearch(q); }, 300);
+      });
+
+      input.addEventListener('keydown', function(e) {
+        if (dropdown.style.display === 'none') return;
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          acIndex = Math.min(acIndex + 1, items.length - 1);
+          updateActive(items);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          acIndex = Math.max(acIndex - 1, -1);
+          updateActive(items);
+        } else if (e.key === 'Escape') {
+          hideDropdown();
+        }
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) hideDropdown();
+      });
+
+      function updateActive(items) {
+        items.forEach(function(el, i) { el.classList.toggle('ac-active', i === acIndex); });
+      }
+
+      function hideDropdown() {
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+        acIndex = -1;
+      }
+
+      async function runSearch(q) {
+        try {
+          const res  = await fetch('/stock/search?q=' + encodeURIComponent(q) + '&secret=' + SECRET);
+          const data = await res.json();
+          if (!Array.isArray(data) || data.length === 0) {
+            dropdown.innerHTML = '<div class="autocomplete-empty">No results found.</div>';
+            return;
+          }
+          dropdown.innerHTML = data.map(function(r) {
+            return '<div class="autocomplete-item" data-ticker="' + r.ticker + '">' +
+              '<span class="ac-ticker">' + r.ticker + '</span>' +
+              '<span class="ac-name">' + escHtml(r.name) + '</span>' +
+              '<span class="ac-exchange">' + escHtml(r.exchange) + '</span>' +
+            '</div>';
+          }).join('');
+          dropdown.querySelectorAll('.autocomplete-item').forEach(function(el) {
+            el.addEventListener('click', function() {
+              input.value = el.dataset.ticker;
+              hideDropdown();
+              input.focus();
+            });
+          });
+        } catch (_) {
+          dropdown.innerHTML = '<div class="autocomplete-empty">Search unavailable.</div>';
+        }
+      }
+
+      function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+    })();
+
+    async function lookupSecurity(e) {
+      const btn      = document.getElementById('secBtn');
+      const progress = document.getElementById('secBtnProgress');
+      const resultEl = document.getElementById('secResult');
+      const dropdown = document.getElementById('secAutocomplete');
 
       if (e) spawnRipple(btn, e);
+      dropdown.style.display = 'none';
 
-      const id = document.getElementById('etfId').value.trim().replace(/[^0-9]/g, '');
-      if (!id) { showEtfError('Please enter a security number.'); return; }
+      const id = document.getElementById('secId').value.trim().replace(/[^A-Za-z0-9.\-]/g, '');
+      if (!id) { showSecError('Please enter a security number or ticker symbol.'); return; }
 
       btn.classList.add('loading');
       btn.disabled = true;
@@ -1821,12 +1988,12 @@ function buildHtml(secret: string): string {
       resultEl.style.display = 'none';
 
       try {
-        const res  = await fetch('/etf?id=' + id + '&format=json&secret=' + SECRET);
+        const res  = await fetch('/price?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET);
         const data = await res.json();
-        if (!res.ok || data.error) { showEtfError(data.error || 'Lookup failed.'); return; }
-        showEtfResult(data);
+        if (!res.ok || data.error) { showSecError(data.error || 'Lookup failed.'); return; }
+        showSecResult(data);
       } catch (err) {
-        showEtfError('Network error: ' + err.message);
+        showSecError('Network error: ' + err.message);
       } finally {
         btn.classList.remove('loading');
         btn.disabled = false;
@@ -1834,64 +2001,72 @@ function buildHtml(secret: string): string {
       }
     }
 
-    function showEtfError(msg) {
-      const resultEl = document.getElementById('etfResult');
+    function showSecError(msg) {
+      const resultEl = document.getElementById('secResult');
       resultEl.className = 'result error';
       resultEl.style.display = 'block';
-      document.getElementById('etfResultLabel').textContent = 'Error';
-      document.getElementById('etfResultMain').textContent  = msg;
-      document.getElementById('etfResultSub').textContent   = '';
-      document.getElementById('etfResultBody').innerHTML    = '';
+      document.getElementById('secResultLabel').textContent = 'Error';
+      document.getElementById('secResultMain').textContent  = msg;
+      document.getElementById('secResultSub').textContent   = '';
+      document.getElementById('secResultBody').innerHTML    = '';
     }
 
-    function showEtfResult(data) {
-      const resultEl = document.getElementById('etfResult');
+    function showSecResult(data) {
+      const resultEl = document.getElementById('secResult');
       resultEl.className = 'result';
       resultEl.style.display = 'block';
       void resultEl.offsetWidth;
       resultEl.classList.add('animating');
       resultEl.addEventListener('animationend', () => resultEl.classList.remove('animating'), { once: true });
 
-      document.getElementById('etfResultLabel').textContent = data.name || ('Security ' + data.id);
-      document.getElementById('etfResultMain').innerHTML =
-        '<span style="display:inline-flex;flex-direction:row;align-items:baseline;gap:0.2em">' +
-          '<span>\\u05d0\\u05d2</span>' +
-          '<span>' + data.price.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>' +
-        '</span>';
+      const isTase = data.currency === 'ILA';
+      document.getElementById('secResultLabel').textContent = data.name || data.id;
 
-      const taseUrl = 'https://market.tase.co.il/en/market_data/security/' + data.id + '/major_data';
-      const subParts = [];
-      if (data.date) subParts.push(data.date);
-      subParts.push('via ' + data.source);
-      const subEl = document.getElementById('etfResultSub');
-      subEl.innerHTML = subParts.join(' \\u00b7 ') +
-        ' \\u00b7 <a href="' + taseUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">TASE ↗</a>';
+      if (isTase) {
+        document.getElementById('secResultMain').innerHTML =
+          '<span style="display:inline-flex;flex-direction:row;align-items:baseline;gap:0.2em">' +
+            '<span>\\u05d0\\u05d2</span>' +
+            '<span>' + data.price.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>' +
+          '</span>';
+        const taseUrl = 'https://market.tase.co.il/en/market_data/security/' + data.id + '/major_data';
+        const subParts = [];
+        if (data.date) subParts.push(data.date);
+        if (data.source) subParts.push('via ' + data.source);
+        document.getElementById('secResultSub').innerHTML =
+          subParts.join(' \\u00b7 ') +
+          ' \\u00b7 <a href="' + taseUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">TASE ↗</a>';
+      } else {
+        document.getElementById('secResultMain').textContent =
+          data.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+          '\\u00a0' + (data.currency || '');
+        const subParts = [];
+        if (data.exchange) subParts.push(data.exchange);
+        if (data.date) subParts.push(data.date);
+        const yahooUrl = 'https://finance.yahoo.com/quote/' + encodeURIComponent(data.id);
+        document.getElementById('secResultSub').innerHTML =
+          subParts.join(' \\u00b7 ') +
+          (subParts.length ? ' \\u00b7 ' : '') +
+          '<a href="' + yahooUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">Yahoo ↗</a>';
+      }
 
-      const formula = '=IMPORTDATA("' + window.location.origin + '/etf?id=' + data.id + '&format=text&secret=YOUR_SECRET")';
-      document.getElementById('etfResultBody').innerHTML = \`
+      const formula = '=IMPORTDATA("' + window.location.origin + '/price?id=' + data.id + '&format=text&secret=YOUR_SECRET")';
+      document.getElementById('secResultBody').innerHTML = \`
         <div class="sheets-box">
           <div class="sheets-box-header">
             <span class="sheets-box-label">Google Sheets formula</span>
-            <button class="copy-btn" id="etfCopyBtn">
+            <button class="copy-btn" id="secCopyBtn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               Copy
             </button>
           </div>
-          <code id="etfFormulaCode"></code>
+          <code id="secFormulaCode"></code>
         </div>
       \`;
-      document.getElementById('etfFormulaCode').textContent = formula;
-      document.getElementById('etfCopyBtn').addEventListener('click', function() {
+      document.getElementById('secFormulaCode').textContent = formula;
+      document.getElementById('secCopyBtn').addEventListener('click', function() {
         copyFormula(this, formula);
       });
     }
-
-    // ── Allow Enter key to submit ──
-    document.addEventListener('keydown', function(e) {
-      if (e.key !== 'Enter') return;
-      if (document.activeElement && document.activeElement.id === 'etfId') lookupEtf();
-      else calculate();
-    });
 
     // ── BOI Rate ──
     // Decision dates published annually: https://www.boi.org.il
