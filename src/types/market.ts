@@ -6,6 +6,7 @@ export interface MarketConfig {
   flag: string;
   timezone: string; // IANA tz
   countryCode: string; // for Nager holiday API
+  holidayCounty?: string; // if set, only include holidays that apply to this county (e.g. 'GB-ENG')
   tradingDays: number[]; // 0=Sun…6=Sat
   openHour: number;
   openMinute: number;
@@ -39,6 +40,7 @@ export interface QuoteResult {
 
 export interface NagerHoliday {
   date: string;
+  counties?: string[] | null; // null = nationwide; string[] = specific regions only
 }
 
 export interface LocalParts {

@@ -87,11 +87,11 @@ describe('GET /etf - text response', () => {
     expect(text).toBe('57615');
   });
 
-  it('sets Cache-Control: no-store on text response', async () => {
+  it('sets Cache-Control: public, max-age on text response', async () => {
     vi.spyOn(etfService, 'fetchEtfQuote').mockResolvedValue(MOCK_QUOTE);
     const req = makeRequest('/etf?id=5119466&secret=test-secret');
     const res = await app.fetch(req, env);
-    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('cache-control')).toMatch(/public.*max-age/);
   });
 });
 
