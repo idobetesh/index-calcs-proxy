@@ -140,7 +140,9 @@ describe('fetchEtfQuote - tase-inday fallback', () => {
 
     await fetchEtfQuote('1159235');
 
-    const taseCall = mockFetch.mock.calls.find(([url]: [string]) => url.includes('api.tase.co.il'));
+    const taseCall = mockFetch.mock.calls.find((args: unknown[]) =>
+      (args[0] as string).includes('api.tase.co.il'),
+    );
     expect(taseCall).toBeDefined();
     const ua = (taseCall?.[1] as RequestInit)?.headers as Record<string, string>;
     expect(ua?.['User-Agent']).toMatch(/Chrome/);
