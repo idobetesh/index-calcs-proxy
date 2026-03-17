@@ -32,3 +32,24 @@ export interface DataSource {
   label: string;
   url: string;
 }
+
+export interface CbsCalcAnswer {
+  from_value: number;
+  to_value: number;
+  from_index_date: string; // "YYYY-M" or "YYYY-M/YYYY-M" (housing bimonthly)
+  to_index_date: string;
+  from_index_value: number;
+  to_index_value: number;
+  chaining_coefficient: number;
+  change_percent: number;
+}
+
+export interface CbsCalcResponse {
+  request: {
+    code: number;
+    sum: number;
+    from_date: string;
+    to_date: string;
+  };
+  answer: CbsCalcAnswer;
+}
