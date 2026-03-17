@@ -41,6 +41,7 @@ export const MARKETS: Record<MarketKey, MarketConfig> = {
     flag: '🇬🇧',
     timezone: 'Europe/London',
     countryCode: 'GB',
+    holidayCounty: 'GB-ENG', // LSE is in England; excludes NI-only holidays (e.g. St Patrick's Day)
     tradingDays: [1, 2, 3, 4, 5],
     openHour: 8,
     openMinute: 0,
@@ -109,32 +110,44 @@ function getLocalParts(date: Date, timezone: string): LocalParts {
   };
 }
 
-const holidayCache = new Map<string, Set<string>>();
+const holidayCache = new Map<string, NagerHoliday[]>();
 
 // Exported for test cleanup only
 export function clearHolidayCache(): void {
   holidayCache.clear();
 }
 
-async function fetchHolidays(year: number, countryCode: string): Promise<Set<string>> {
+async function fetchHolidays(
+  year: number,
+  countryCode: string,
+  county?: string,
+): Promise<Set<string>> {
   const key = `${year}-${countryCode}`;
-  const cached = holidayCache.get(key);
-  if (cached !== undefined) return cached;
+  let holidays = holidayCache.get(key);
 
-  try {
-    const res = await fetchWithTimeout(
-      `https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`,
-      { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-      8_000,
-    );
-    if (!res.ok) return new Set<string>(); // don't cache failures
-    const json: unknown = await res.json();
-    const dates = new Set<string>((json as NagerHoliday[]).map((h) => h.date));
-    holidayCache.set(key, dates);
-    return dates;
-  } catch {
-    return new Set<string>(); // timeout / network error — degrade gracefully
+  if (holidays === undefined) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`,
+        { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
+        8_000,
+      );
+      if (!res.ok) return new Set<string>(); // don't cache failures
+      const json: unknown = await res.json();
+      holidays = json as NagerHoliday[];
+      holidayCache.set(key, holidays);
+    } catch {
+      return new Set<string>(); // timeout / network error — degrade gracefully
+    }
   }
+
+  // If a county is specified, exclude holidays that are regional but don't cover this county.
+  // holidays with counties === null (or missing) are nationwide and always included.
+  const applicable = county
+    ? holidays.filter((h) => h.counties == null || h.counties.includes(county))
+    : holidays;
+
+  return new Set<string>(applicable.map((h) => h.date));
 }
 
 export async function getMarketStatus(market: MarketConfig, now: Date): Promise<MarketStatus> {
@@ -174,7 +187,7 @@ export async function getMarketStatus(market: MarketConfig, now: Date): Promise<
 
   // Only check holiday when within trading window (avoids unnecessary I/O)
   const dateStr = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
-  const holidays = await fetchHolidays(local.year, market.countryCode);
+  const holidays = await fetchHolidays(local.year, market.countryCode, market.holidayCounty);
   const open = !holidays.has(dateStr);
 
   return {
