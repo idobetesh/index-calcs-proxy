@@ -110,7 +110,7 @@ interface JinaSource {
  * To add a new source: add an entry with the page URL and a price parser.
  * Funder.co.il was evaluated but blocks all requests (HTTP 403) — excluded.
  */
-const JINA_SOURCES: JinaSource[] = [
+export const JINA_SOURCES: JinaSource[] = [
   {
     name: 'jina-tase',
     url: (id) => `https://market.tase.co.il/en/market_data/security/${id}/major_data`,
