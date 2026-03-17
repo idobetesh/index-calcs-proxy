@@ -149,13 +149,15 @@ Returns two lines — use `INDEX()` to extract:
 - Row 1: indexed amount (integer)
 - Row 2: percentage as decimal fraction (e.g. `0.0530`)
 
-### ETF price
+### Security price
 
 ```
-=WORKER("etf?id=1159235&format=text")
+=WORKER("price?id=1159235&format=text")
+=WORKER("price?id=AAPL&format=text")
+=WORKER("price?id=TEVA.TA&format=text")
 ```
 
-Returns the current price of an Israeli ETF by TASE security number.
+Returns the current price of a security. Accepts either a TASE security number (6–10 digits, returns price in ILA אגורות) or a ticker symbol like `AAPL`, `TEVA.TA`, `SPY` (returns price in the security's native currency).
 
 ### Market open/closed (typed helper)
 
@@ -227,7 +229,7 @@ gs/
     triggers.gs      # installTriggers() / uninstallTriggers() / refreshMarketData()
     appsscript.json  # Apps Script manifest (runtime, timezone, OAuth scopes)
   .clasp.json        # Script ID + rootDir — gitignored, create locally (see step 4)
-  ONBOARDING.md      # This file
+  README.md          # This file
 ```
 
 ---

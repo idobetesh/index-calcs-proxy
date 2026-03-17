@@ -7,7 +7,7 @@
   <a href="https://hono.dev/"><img src="https://img.shields.io/badge/Hono-4.4-orange?logo=hono&logoColor=white" alt="Hono" /></a>
   <a href="https://workers.cloudflare.com/"><img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers" /></a>
   <a href="https://github.com/idobetesh/index-calcs-proxy/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/idobetesh/13d12fa7c5d211a509b87a343c3258dc/raw/index-calcs-proxy-coverage.json" alt="Coverage" /></a>
-  <a href="gs/ONBOARDING.md"><img src="https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white" alt="Google Apps Script" /></a>
+  <a href="gs/README.md"><img src="https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white" alt="Google Apps Script" /></a>
 </p>
 
 <p align="center">A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Statistics (CBS) calculator API and returns plain-text results consumable directly by Google Sheets <code>IMPORTDATA</code>.</p>
@@ -81,17 +81,22 @@ Note: `fromPeriod`/`toPeriod` reflect the CBS-snapped periods used internally (d
 
 ---
 
-### `GET /etf`
+### `GET /price`
 
-Returns the current price of an Israeli ETF or mutual fund by TASE security number.
+Returns the current price of a security. Accepts either a **TASE security number** (Israeli ETFs/funds) or a **ticker symbol** (global stocks and ETFs).
 
 **Query parameters**
 
-| Parameter | Required | Description                                       |
-| --------- | -------- | ------------------------------------------------- |
-| `id`      | Yes      | TASE security number (6–10 digits)                |
-| `format`  | No       | `text` (default) or `json`                        |
-| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header) |
+| Parameter | Required | Description                                                                             |
+| --------- | -------- | --------------------------------------------------------------------------------------- |
+| `id`      | Yes      | TASE security number (6–10 digits) **or** ticker symbol (e.g. `AAPL`, `TEVA.TA`, `SPY`) |
+| `format`  | No       | `text` (default) or `json`                                                              |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header)                                       |
+
+**Routing:**
+
+- Numeric `id` → TASE Maya/TASE APIs → price in ILA (אגורות)
+- Alpha `id` → Yahoo Finance chart API → price in the security's native currency
 
 **Text response** (default, for Google Sheets):
 
@@ -99,23 +104,39 @@ Returns the current price of an Israeli ETF or mutual fund by TASE security numb
 576.15
 ```
 
-**JSON response** (`format=json`):
+**JSON response** (`format=json`) — TASE security:
 
 ```json
 {
   "id": "1159235",
   "name": "תכלית S&P 500",
-  "price": 576.15,
-  "currency": "ILS",
+  "price": 57615,
+  "currency": "ILA",
   "date": "2024-12-31",
-  "source": "maya"
+  "source": "maya-mutual"
 }
 ```
 
-**Google Sheets example:**
+**JSON response** (`format=json`) — ticker symbol:
+
+```json
+{
+  "id": "AAPL",
+  "name": "Apple Inc.",
+  "price": 213.49,
+  "currency": "USD",
+  "exchange": "NasdaqGS",
+  "date": "2026-03-17",
+  "source": "yahoo"
+}
+```
+
+**Google Sheets examples:**
 
 ```
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/etf?id=1159235&format=text&secret=YOUR_SECRET")
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/price?id=1159235&format=text&secret=YOUR_SECRET")
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/price?id=AAPL&format=text&secret=YOUR_SECRET")
+=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/price?id=TEVA.TA&format=text&secret=YOUR_SECRET")
 ```
 
 ---
@@ -284,9 +305,12 @@ The `gs/` folder contains a [clasp](https://github.com/google/clasp)-based Apps 
 =MARKET_OPEN("nyse")                                 → TRUE / FALSE
 =CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")          → indexed amount
 =CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "cpi")         → decimal fraction
+=WORKER("price?id=1159235&format=text")              → TASE security price
+=WORKER("price?id=AAPL&format=text")                 → stock price (USD)
+=WORKER("price?id=TEVA.TA&format=text")              → Israeli stock price
 ```
 
-See [gs/ONBOARDING.md](gs/ONBOARDING.md) for setup instructions.
+See [gs/README.md](gs/README.md) for setup instructions.
 
 ---
 
@@ -360,7 +384,8 @@ No other files need changing.
 
 - **Primary calculator**: [CBS Calculator API](https://www.cbs.gov.il/he/Pages/default.aspx) — official chaining coefficients, handles base-year changes automatically
 - **Fallback (chaining)**: [CBS Price Index API](https://www.cbs.gov.il/he/Pages/default.aspx) — month-over-month percent compounding, used when CBS calculator is unavailable
-- **ETF / fund prices**: [TASE Maya](https://maya.tase.co.il)
+- **TASE security prices**: [TASE Maya](https://maya.tase.co.il) (mutual funds, ETFs) · [TASE intraday API](https://api.tase.co.il) · [Jina Reader](https://jina.ai) (fallback)
+- **Global stock / ETF prices**: [Yahoo Finance](https://finance.yahoo.com) chart API · [Jina Reader](https://jina.ai) (fallback)
 - **BOI interest rate**: [Bank of Israel SDMX v2](https://edge.boi.gov.il)
 - **Public holidays**: [Nager.Date](https://date.nager.at)
 - **Market data**: [Stooq](https://stooq.com) (Gold, Silver, S&P 500, NASDAQ, Russell, MSCI), [CBOE](https://www.cboe.com/tradable_products/vix/vix_historical_data/) (VIX), [Frankfurter](https://frankfurter.app) (USD/ILS, EUR/ILS, GBP/ILS), [CoinGecko](https://coingecko.com) (BTC, ETH)
