@@ -1,4 +1,4 @@
-import { EtfQuote, MayaFundResponse, TaseInDayResponse } from '../types/etf.js';
+import { EtfQuote, JinaSource, MayaFundResponse, TaseInDayResponse } from '../types/etf.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
 
 export type { EtfQuote };
@@ -93,13 +93,6 @@ async function fetchTaseInDay(id: string): Promise<EtfQuote> {
     date: data.baseInfo?.dte ?? '',
     source: 'tase-inday',
   };
-}
-
-interface JinaSource {
-  name: string;
-  url: (id: string) => string;
-  /** Extract price from Jina-rendered markdown. Return null if not found. */
-  parse: (content: string) => number | null;
 }
 
 /**

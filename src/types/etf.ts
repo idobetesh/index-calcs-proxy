@@ -19,3 +19,10 @@ export interface TaseInDayResponse {
   baseInfo?: { brte?: number; dte?: string };
   inDay?: Array<{ pval?: number }>;
 }
+
+export interface JinaSource {
+  name: string;
+  url: (id: string) => string;
+  /** Extract price from Jina-rendered markdown. Return null if not found. */
+  parse: (content: string) => number | null;
+}
