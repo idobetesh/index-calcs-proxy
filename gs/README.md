@@ -181,7 +181,32 @@ Returns a boolean — useful in `IF()` formulas:
 =CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "cpi")   → decimal fraction (e.g. 0.082)
 ```
 
+`CALC_INDEX`, `CALC_AMOUNT`, and `CALC_PERCENT` try **hon.co.il** first (cached ~4h), then fall back to the **Worker** if HON fails. Use `=HONINDEX(...)` when you need HON only (no fallback).
+
+Example change label (no sheet `IFERROR`):
+
+```
+=LET(
+  raw, CALC_INDEX(H3, TEXT(M2,"YYYY-MM"), "cpi"),
+  DOLLAR(INT(INDEX(SPLIT(raw,CHAR(10)),1,1))-H3,0)
+  & " / " &
+  TEXT(VALUE(INDEX(SPLIT(raw,CHAR(10)),1,2)),"0.00%")
+)
+```
+
 `CALC_PERCENT` returns a decimal fraction — use `TEXT(value, "0.00%")` to display as `8.20%`.
+
+### HON index (matches hon.co.il calculators)
+
+Uses HON’s embedded `HON_CBS_IDX` data (fetched once per index type, cached ~4 hours):
+
+```
+=HONINDEX(G3, F3, "cpi")
+=HONINDEX(G3, F3, "housing")
+=HONINDEX(G3, F3, "construction", H3)
+```
+
+Argument order is **start date, amount, type** (opposite of `CALC_AMOUNT`). Dates can be Sheet dates or `TEXT(..., "YYYY-MM")`.
 
 ---
 
@@ -226,6 +251,7 @@ gs/
     worker.gs        # WORKER() helper — base fetch function
     markets.gs       # MARKET_OPEN() and getAllMarketStatuses()
     calc.gs          # CALC_INDEX(), CALC_AMOUNT(), CALC_PERCENT()
+    hon-index.gs     # HONINDEX() — hon.co.il index (cached)
     triggers.gs      # installTriggers() / uninstallTriggers() / refreshMarketData()
     appsscript.json  # Apps Script manifest (runtime, timezone, OAuth scopes)
   .clasp.json        # Script ID + rootDir — gitignored, create locally (see step 4)
