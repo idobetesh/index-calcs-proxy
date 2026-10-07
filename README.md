@@ -10,7 +10,7 @@
   <a href="gs/README.md"><img src="https://img.shields.io/badge/Google_Apps_Script-clasp-4285F4?logo=google&logoColor=white" alt="Google Apps Script" /></a>
 </p>
 
-<p align="center">A lightweight Cloudflare Worker that proxies the Israeli Central Bureau of Statistics (CBS) calculator API and returns plain-text results consumable directly by Google Sheets <code>IMPORTDATA</code>.</p>
+<p align="center">Cloudflare Worker for CBS index calcs, TASE/global prices, BOI rate, and market status — with a <a href="gs/README.md">Google Apps Script</a> integration for Sheets.</p>
 
 ---
 
@@ -131,14 +131,6 @@ Returns the current price of a security. Accepts either a **TASE security number
 }
 ```
 
-**Google Sheets examples:**
-
-```
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/price?id=1159235&format=text&secret=YOUR_SECRET")
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/price?id=AAPL&format=text&secret=YOUR_SECRET")
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/price?id=TEVA.TA&format=text&secret=YOUR_SECRET")
-```
-
 ---
 
 ### `GET /rate`
@@ -168,12 +160,6 @@ Returns the current Bank of Israel interest rate (ריבית בנק ישראל).
   "effectiveDate": "2026-01-26",
   "asOf": "2026-03-12T10:00:00.000Z"
 }
-```
-
-**Google Sheets example:**
-
-```
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/rate?format=text&secret=YOUR_SECRET")
 ```
 
 `Cache-Control: public, max-age=3600`
@@ -238,12 +224,6 @@ Returns open/closed status for major stock exchanges. Holiday-aware via [Nager.D
 false
 ```
 
-**Google Sheets example:**
-
-```
-=IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/market-status?market=nyse&format=text&secret=YOUR_SECRET")
-```
-
 **TASE hours:** Monday–Thursday 09:59–17:25, Friday 09:59–14:00 (early close for Shabbat). Holiday-aware via Nager.Date.
 
 **Known limitations:** US early-close days (Thanksgiving eve, Christmas eve) and TASE Erev Chag (holiday eve) early-close are not modeled. After-hours / pre-market sessions are not modeled.
@@ -280,60 +260,31 @@ Returns live prices for metals, volatility, and equity indices (server-side prox
 
 ### `GET /health`
 
-Health check. No auth required. Returns plain text for Google Sheets `IMPORTDATA` compatibility.
+Health check. No auth required.
 
 ```
 ok
 ```
 
-**Google Sheets example:**
-
-```
-=IF(IMPORTDATA("https://index-calcs-proxy.idobetesh.workers.dev/health")="ok","✅ Up","❌ Down")
-```
-
 ---
 
-## Google Sheets integration
+## Google Sheets
 
-### Recommended: Google Apps Script
-
-The `gs/` folder contains a [clasp](https://github.com/google/clasp)-based Apps Script integration that is more reliable than `IMPORTDATA` — no caching issues, no Cloudflare blocking, handles JSON natively.
+Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET_KEY`** in Script properties (same value as the Worker secret). Formulas call `WORKER()` / helpers — the secret is not pasted in cells.
 
 ```
-=WORKER("health")                                    → ok
-=MARKET_OPEN("nyse")                                 → TRUE / FALSE
-=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")          → indexed amount
-=CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "cpi")         → decimal fraction
-=WORKER("price?id=1159235&format=text")              → TASE security price
-=WORKER("price?id=AAPL&format=text")                 → stock price (USD)
-=WORKER("price?id=TEVA.TA&format=text")              → Israeli stock price
+=WORKER("health")
+=MARKET_OPEN("nyse")
+=CALC_AMOUNT(F3, G3, "cpi")              → HON first, then Worker
+=CALC_PERCENT(1, G3, "cpi")               → % change (amount can be 1)
+=HONINDEX(G3, F3, "cpi")                  → HON only
+=WORKER("price?id=1150572&format=text")   → TASE id or ticker (AAPL, TEVA.TA)
+=WORKER("rate?format=text")
 ```
 
-See [gs/README.md](gs/README.md) for setup instructions.
+Full setup: **[gs/README.md](gs/README.md)**.
 
----
-
-### Alternative: IMPORTDATA
-
-The single-formula approach using `LET` (no helper cells needed):
-
-```
-=LET(
-  data, IMPORTDATA(CONCATENATE(
-    "https://index-calcs-proxy.idobetesh.workers.dev/calc?amount=", INT(G3),
-    "&from=", TEXT(M2,"YYYY-MM"),
-    "&index=construction",
-    "&secret=YOUR_SECRET"
-  )),
-  CONCATENATE(DOLLAR(INDEX(data,1,1)-G3,0)," / ",TEXT(INDEX(data,2,1),"0.00%"))
-)
-```
-
-- `INDEX(data,1,1)` → indexed amount — `DOLLAR(value - G3, 0)` gives the difference formatted as currency
-- `INDEX(data,2,1)` → decimal fraction (e.g. `0.0820`) — `TEXT(value, "0.00%")` renders as `8.20%`
-
-`Cache-Control: no-store` is set on all `/calc` responses to prevent stale data being served.
+`IMPORTDATA` with `?secret=` still works but is optional; Apps Script is preferred (no URL secret in the sheet, better errors).
 
 ---
 
