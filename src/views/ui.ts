@@ -1408,8 +1408,8 @@ function buildHtml(secret: string): string {
         <span style="margin-left:auto;font-size:0.75rem;color:var(--text-muted);">\${document.getElementById('index').value.toUpperCase()}</span>
       \`;
 
-      const base    = window.location.origin;
-      const formula = '=IMPORTDATA(CONCATENATE("' + base + '/calc?amount=",INT(H3),"&from=",TEXT(M2,"YYYY-MM"),"&secret=YOUR_SECRET"))';
+      const formula =
+        '=CALC_AMOUNT(H3, TEXT(M2, "YYYY-MM"), "' + _histInputs.index + '")';
       const box = document.getElementById('sheetsBox');
       box.innerHTML = \`
         <div class="sheets-box-header">
@@ -2049,7 +2049,7 @@ function buildHtml(secret: string): string {
           '<a href="' + yahooUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">Yahoo ↗</a>';
       }
 
-      const formula = '=IMPORTDATA("' + window.location.origin + '/price?id=' + data.id + '&format=text&secret=YOUR_SECRET")';
+      const formula = '=WORKER("price?id=' + data.id + '&format=text")';
       document.getElementById('secResultBody').innerHTML = \`
         <div class="sheets-box">
           <div class="sheets-box-header">
