@@ -185,6 +185,26 @@ Returns two lines — use `INDEX()` to extract:
 
 Worker responses are **cached ~10 minutes** at the edge (`Cache-Control: max-age=600`). Apps Script does not add a separate price cache — each formula recalc calls the Worker unless the edge cache hits.
 
+### Management fee (דמי ניהול)
+
+```
+=MGMT_FEE(1150572)     → 0.25  (דמי ניהול, percent per year)
+=TRUSTEE_FEE(1150572)  → 0.03  (דמי נאמן, TASE funds)
+=MGMT_FEE(1150572)+TRUSTEE_FEE(1150572)  → combined annual % (when both apply)
+=MGMT_FEE("SPY")       → expense ratio for US ETF
+```
+
+TASE ids use Maya; tickers use Yahoo expense ratio. Display as percent: `=MGMT_FEE(1150572)/100` with `%` format, or append `&"%"` in a label cell.
+
+### Dividends (tickers)
+
+```
+=DIV_AMOUNT("AAPL")
+=DIV_DATE("AAPL")
+```
+
+Not available for TASE numeric ids — use a ticker such as `TEVA.TA`.
+
 ### Market open/closed (typed helper)
 
 ```
@@ -279,6 +299,8 @@ gs/
     calc.gs          # CALC_INDEX(), CALC_AMOUNT(), CALC_PERCENT()
     hon-index.gs     # HONINDEX() — hon.co.il index (cached)
     price.gs         # SEC_PRICE() — TASE / ticker via Worker
+    mgmt-fee.gs      # MGMT_FEE() — דמי ניהול / expense ratio
+    dividend.gs      # DIV_AMOUNT(), DIV_DATE()
     rate.gs          # BOI_RATE(), PRIME_RATE()
     fear-greed.gs    # FEAR_GREED()
     triggers.gs      # installTriggers() / uninstallTriggers() / refreshMarketData()

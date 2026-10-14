@@ -1,13 +1,8 @@
 /**
- * WORKER() — base helper for calling the index-calcs-proxy Cloudflare Worker.
+ * Raw HTTP GET to the index-calcs-proxy Worker (path + query; secret from script properties).
  *
- * Usage in any cell:
- *   =WORKER("health")
- *   =BOI_RATE() / =PRIME_RATE()  (preferred over WORKER("rate?format=text"))
- *   =WORKER("calc?amount=1000000&from=2023-01&index=cpi")
- *
- * @param {string} path - Path + query string (e.g. "calc?amount=100&from=2024-01")
- * @returns {string} Response body
+ * @param {string} path Worker path and query, e.g. "health" or "calc?amount=100&from=2024-01&index=cpi".
+ * @return {string} Response body text.
  * @customfunction
  */
 function WORKER(path) {

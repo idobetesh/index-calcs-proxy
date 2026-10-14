@@ -136,13 +136,13 @@ function calcIndexRaw_(amount, from, index, to) {
 }
 
 /**
- * Returns the raw two-line response: "<indexed_amount>\n<percentage_fraction>"
+ * CBS index adjustment: two-line text — indexed amount, then change as decimal fraction.
  *
- * @param {number} amount   - Original amount (positive integer)
- * @param {string} from     - Start period in YYYY-MM format
- * @param {string} index    - Index type: cpi, construction, or housing
- * @param {string=} to      - End period YYYY-MM (optional; HON: today if omitted, Worker: latest published)
- * @returns {string}
+ * @param {number} amount Original amount (positive number).
+ * @param {string} from Start period YYYY-MM.
+ * @param {string} index cpi, construction, or housing.
+ * @param {string=} to End period YYYY-MM (optional; latest published if omitted).
+ * @return {string} Line 1: indexed amount; line 2: fraction (e.g. 0.053).
  * @customfunction
  */
 function CALC_INDEX(amount, from, index, to) {
@@ -150,13 +150,13 @@ function CALC_INDEX(amount, from, index, to) {
 }
 
 /**
- * Returns the inflation-adjusted amount as an integer.
+ * CBS index adjustment: inflation-linked amount only (integer).
  *
- * @param {number} amount   - Original amount
- * @param {string} from     - Start period YYYY-MM
- * @param {string} index    - Index type: cpi, construction, or housing
- * @param {string=} to      - End period YYYY-MM (optional)
- * @returns {number}
+ * @param {number} amount Original amount.
+ * @param {string} from Start period YYYY-MM.
+ * @param {string} index cpi, construction, or housing.
+ * @param {string=} to End period YYYY-MM (optional).
+ * @return {number} Indexed amount rounded to integer.
  * @customfunction
  */
 function CALC_AMOUNT(amount, from, index, to) {
@@ -165,14 +165,13 @@ function CALC_AMOUNT(amount, from, index, to) {
 }
 
 /**
- * Returns the percentage change as a decimal fraction (e.g. 0.082 for 8.2%).
- * Use TEXT(value, "0.00%") in the sheet to display as "8.20%".
+ * CBS index adjustment: total change as decimal fraction (use TEXT(...,"0.00%") to display).
  *
- * @param {number} amount   - Original amount
- * @param {string} from     - Start period YYYY-MM
- * @param {string} index    - Index type: cpi, construction, or housing
- * @param {string=} to      - End period YYYY-MM (optional)
- * @returns {number}
+ * @param {number} amount Original amount.
+ * @param {string} from Start period YYYY-MM.
+ * @param {string} index cpi, construction, or housing.
+ * @param {string=} to End period YYYY-MM (optional).
+ * @return {number} Fraction (e.g. 0.082 for 8.2%).
  * @customfunction
  */
 function CALC_PERCENT(amount, from, index, to) {

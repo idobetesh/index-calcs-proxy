@@ -137,6 +137,57 @@ Returns the current price of a security. Accepts either a **TASE security number
 
 ---
 
+### `GET /mgmt-fee`
+
+Annual **management fee** (דמי ניהול) in **percent** (`0.25` = 0.25% per year).
+
+| Parameter | Required | Description                                                           |
+| --------- | -------- | --------------------------------------------------------------------- |
+| `id`      | Yes      | Same as `/price` — TASE fund/ETF number or ticker (ETF expense ratio) |
+| `format`  | No       | `text` (default) or `json`                                            |
+| `secret`  | Yes\*    | Auth secret                                                           |
+
+- Numeric `id` → [Maya TASE](https://maya.tase.co.il) mutual / ETF API (`managementFee`, `trusteeFee`, …)
+- Ticker → Yahoo expense ratio (Jina-rendered fallback)
+
+**Text response:** `0.25`
+
+**JSON response** (`format=json`):
+
+```json
+{
+  "id": "1150572",
+  "name": "MTF סל SP500",
+  "managementFee": 0.25,
+  "trusteeFee": 0.03,
+  "variableFee": 0.3,
+  "saleLoad": 0,
+  "managerName": "מגדל",
+  "fundType": "קרן סל",
+  "source": "maya-etf"
+}
+```
+
+Cached **24 hours** at the edge.
+
+---
+
+### `GET /dividend`
+
+Next dividend **amount** (per share) and **date** for **tickers** (Yahoo). TASE numeric ids return 404.
+
+| Parameter | Description                                      |
+| --------- | ------------------------------------------------ |
+| `id`      | Ticker (e.g. `AAPL`, `TEVA.TA`)                  |
+| `format`  | `text` (default) or `json`                       |
+| `part`    | With `format=text`: `amount` (default) or `date` |
+
+**JSON:** `{ id, currency, amount, nextDate, lastAmount, lastDate, isEstimate, source }`
+
+**Sheets:** `=DIV_AMOUNT("AAPL")` · `=DIV_DATE("AAPL")`
+
+---
+
 ### `GET /rate`
 
 Returns the current Bank of Israel interest rate (ריבית בנק ישראל).
@@ -317,6 +368,10 @@ Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET
 | `CALC_INDEX`   | `=CALC_INDEX(F3, TEXT(G3,"YYYY-MM"), "housing")` | Two lines: amount + fraction (`SPLIT` / `INDEX`).                                                                                                                                                  |
 | `HONINDEX`     | `=HONINDEX(G3, F3, "cpi")`                       | HON-only indexed amount (date, amount, type — note argument order).                                                                                                                                |
 | `SEC_PRICE`    | `=SEC_PRICE(1150572)` · `=SEC_PRICE("AAPL")`     | TASE price in **agorot** (integer) or ticker in native currency.                                                                                                                                   |
+| `MGMT_FEE`     | `=MGMT_FEE(1150572)` · `=MGMT_FEE("SPY")`        | דמי ניהול / expense ratio (**percent**, 0.16 = 0.16%).                                                                                                                                             |
+| `TRUSTEE_FEE`  | `=TRUSTEE_FEE(1150572)`                          | דמי נאמן (TASE funds; often no value for US tickers).                                                                                                                                              |
+| `DIV_AMOUNT`   | `=DIV_AMOUNT("AAPL")`                            | Next/last dividend per share (tickers only).                                                                                                                                                       |
+| `DIV_DATE`     | `=DIV_DATE("AAPL")`                              | Next dividend date (`YYYY-MM-DD`); may be estimated.                                                                                                                                               |
 | `BOI_RATE`     | `=BOI_RATE()`                                    | Bank of Israel rate (% number, e.g. `4`).                                                                                                                                                          |
 | `PRIME_RATE`   | `=PRIME_RATE()`                                  | Prime rate = BOI + 1.5%.                                                                                                                                                                           |
 | `FEAR_GREED`   | `=FEAR_GREED()` · `=FEAR_GREED("crypto")`        | Spills one row (formula cell = col 1): **1** `value` (0–100) · **2** `rating` · **3** `market` · **4** `source` · **5** `timestamp`. Default market: US stocks. Label: `=INDEX(FEAR_GREED(),1,2)`. |

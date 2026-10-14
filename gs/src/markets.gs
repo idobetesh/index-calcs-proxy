@@ -1,14 +1,8 @@
 /**
- * Market status helpers.
+ * Whether a major exchange is open now (holiday-aware).
  *
- * Usage:
- *   =MARKET_OPEN("tase")   → TRUE / FALSE
- *   =MARKET_OPEN("nyse")
- *   =MARKET_OPEN("lse")
- *   =MARKET_OPEN("six")
- *
- * @param {string} market - Exchange key: tase, lse, nyse, six
- * @returns {boolean}
+ * @param {string} market Exchange code: tase, nyse, lse, or six.
+ * @return {boolean} TRUE if open, FALSE if closed.
  * @customfunction
  */
 function MARKET_OPEN(market) {
