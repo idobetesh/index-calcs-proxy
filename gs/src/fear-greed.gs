@@ -6,10 +6,10 @@
 var FEAR_GREED_CACHE_TTL_SEC = 30 * 60;
 
 /**
- * Returns the Fear & Greed sentiment index (0–100) and metadata. Spills 5 columns from the formula cell: value | rating | market | source | timestamp. US stocks when market is omitted; cached 30 minutes.
+ * Fear & Greed index (0–100) and metadata; spills 5 columns: value, rating, market, source, timestamp.
  *
- * @param {string=} market Optional. Use crypto for the crypto index; omit or use stocks for US equities.
- * @return {Array<Array<number|string>>} One row: col 1 index 0-100; col 2 rating; col 3 market; col 4 source; col 5 timestamp (ISO).
+ * @param {string=} market Omit or "stocks" for CNN US index; "crypto" for Bitcoin index.
+ * @return {Array<Array<number|string>>} One row — value, title-case rating, market, source, ISO timestamp.
  * @customfunction
  */
 function FEAR_GREED(market) {

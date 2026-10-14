@@ -18,9 +18,9 @@ function boiRatePercent_() {
 }
 
 /**
- * Current Bank of Israel interest rate (ריבית בנק ישראל), in percent.
+ * Current Bank of Israel policy rate (ריבית בנק ישראל), in percent (e.g. 4).
  *
- * @returns {number}
+ * @return {number} BOI rate as a number, not a decimal fraction.
  * @customfunction
  */
 function BOI_RATE() {
@@ -28,9 +28,9 @@ function BOI_RATE() {
 }
 
 /**
- * Current prime rate (ריבית פריים) = BOI rate + 1.5%, in percent.
+ * Current Israeli prime rate (ריבית פריים) = BOI rate + 1.5%, in percent.
  *
- * @returns {number}
+ * @return {number} Prime rate as a number (e.g. 5.5).
  * @customfunction
  */
 function PRIME_RATE() {

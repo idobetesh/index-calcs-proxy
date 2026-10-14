@@ -1,15 +1,8 @@
 /**
- * Security price via Worker /price (TASE id or ticker).
+ * Latest price for a TASE fund/ETF (agorot) or a global ticker (native currency).
  *
- * Usage:
- *   =SEC_PRICE(1150572)        → TASE price in agorot (integer)
- *   =SEC_PRICE("AAPL")         → USD price (may include decimals)
- *   =SEC_PRICE(A1)             → id from cell
- */
-
-/**
- * @param {string|number} id TASE security number (6–10 digits) or ticker (AAPL, TEVA.TA)
- * @returns {number}
+ * @param {string|number} id TASE security number (6–10 digits) or ticker (e.g. AAPL, TEVA.TA).
+ * @return {number} Agorot (integer) for numeric TASE ids; decimal price for tickers.
  * @customfunction
  */
 function SEC_PRICE(id) {

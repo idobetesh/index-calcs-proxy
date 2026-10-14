@@ -223,13 +223,13 @@ function honCalcIndexText_(amount, from, index, to) {
 }
 
 /**
- * Calculates an amount adjusted according to HON index data.
+ * Index-linked amount using HON sheet data only (no Worker); cpi, construction, or housing.
  *
- * @param {Date|string} startDate Starting date (Date, YYYY-MM, or YYYY-MM-DD).
- * @param {number} amount Original amount to adjust.
- * @param {string} type Index type: "construction", "housing", or "cpi".
- * @param {Date|string=} endDate Optional ending date. Defaults to today.
- * @return {number} The amount adjusted according to the selected index.
+ * @param {Date|string} startDate Start date (Date, YYYY-MM, or YYYY-MM-DD).
+ * @param {number} amount Original amount.
+ * @param {string} type Index: cpi, construction, or housing.
+ * @param {Date|string=} endDate End date (optional; defaults to today).
+ * @return {number} Adjusted amount.
  * @customfunction
  */
 function HONINDEX(startDate, amount, type, endDate) {

@@ -10,9 +10,15 @@ export interface TaseQuote {
 export interface MayaFundResponse {
   fundId?: number;
   name?: string;
+  fundType?: string;
+  managerName?: string;
   purchasePrice?: number;
   redemptionPrice?: number;
   ratesAsOf?: string;
+  managementFee?: number;
+  trusteeFee?: number;
+  variableFee?: number | null;
+  saleLoad?: number;
 }
 
 export interface TaseInDayResponse {

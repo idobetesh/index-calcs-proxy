@@ -1206,8 +1206,8 @@ function buildHtml(secret: string): string {
   <div class="card">
     <div class="card-header">
       <div class="badge">📈 Securities</div>
-      <h1>Price Lookup</h1>
-      <p>TASE security number or ticker symbol (e.g. 5119466, AAPL, TEVA.TA)</p>
+      <h1>Price &amp; Fees</h1>
+      <p>TASE security number or ticker — price plus דמי ניהול (management fee) when available</p>
     </div>
 
     <div class="field">
@@ -2189,10 +2189,28 @@ function buildHtml(secret: string): string {
       resultEl.style.display = 'none';
 
       try {
-        const res  = await fetch('/price?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET);
-        const data = await res.json();
-        if (!res.ok || data.error) { showSecError(data.error || 'Lookup failed.'); return; }
-        showSecResult(data);
+        const priceUrl = '/price?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET;
+        const feeUrl   = '/mgmt-fee?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET;
+        const divUrl   = '/dividend?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET;
+        const isDigits = /^\\d+$/.test(id);
+        const [priceRes, feeRes, divRes] = await Promise.all([
+          fetch(priceUrl),
+          fetch(feeUrl).catch(function() { return null; }),
+          isDigits ? Promise.resolve(null) : fetch(divUrl).catch(function() { return null; }),
+        ]);
+        const data = await priceRes.json();
+        if (!priceRes.ok || data.error) { showSecError(data.error || 'Lookup failed.'); return; }
+        let feeData = null;
+        if (feeRes && feeRes.ok) {
+          const parsed = await feeRes.json();
+          if (parsed && parsed.managementFee != null && !parsed.error) feeData = parsed;
+        }
+        let divData = null;
+        if (divRes && divRes.ok) {
+          const parsed = await divRes.json();
+          if (parsed && parsed.amount != null && parsed.nextDate && !parsed.error) divData = parsed;
+        }
+        showSecResult(data, feeData, divData);
       } catch (err) {
         showSecError('Network error: ' + err.message);
       } finally {
@@ -2212,7 +2230,7 @@ function buildHtml(secret: string): string {
       document.getElementById('secResultBody').innerHTML    = '';
     }
 
-    function showSecResult(data) {
+    function showSecResult(data, feeData, divData) {
       const resultEl = document.getElementById('secResult');
       resultEl.className = 'result';
       resultEl.style.display = 'block';
@@ -2250,25 +2268,133 @@ function buildHtml(secret: string): string {
           '<a href="' + yahooUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">Yahoo ↗</a>';
       }
 
-      const formula = /^\d+$/.test(String(data.id))
-        ? '=SEC_PRICE(' + data.id + ')'
-        : '=SEC_PRICE("' + data.id + '")';
-      document.getElementById('secResultBody').innerHTML = \`
+      const idStr = String(data.id);
+      const isDigits = /^\\d+$/.test(idStr);
+      const priceFormula = isDigits
+        ? '=SEC_PRICE(' + idStr + ')'
+        : '=SEC_PRICE("' + idStr + '")';
+      const feeFormula = isDigits
+        ? '=MGMT_FEE(' + idStr + ')'
+        : '=MGMT_FEE("' + idStr + '")';
+      const trusteeFormula = isDigits
+        ? '=TRUSTEE_FEE(' + idStr + ')'
+        : '=TRUSTEE_FEE("' + idStr + '")';
+      const divAmountFormula = '=DIV_AMOUNT("' + idStr + '")';
+      const divDateFormula = '=DIV_DATE("' + idStr + '")';
+
+      let metaBlock = '';
+      if (feeData) {
+        const feeParts = [
+          '<strong>' + feeData.managementFee + '%</strong> דמי ניהול',
+        ];
+        if (feeData.trusteeFee != null) feeParts.push('נאמן ' + feeData.trusteeFee + '%');
+        if (feeData.variableFee != null) feeParts.push('משתנה ' + feeData.variableFee + '%');
+        if (feeData.managerName) feeParts.push(feeData.managerName);
+        metaBlock +=
+          '<div class="result-kv" style="margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted);">' +
+          feeParts.join(' · ') +
+          '</div>';
+      }
+      if (divData) {
+        const est = divData.isEstimate ? ' (est.)' : '';
+        metaBlock +=
+          '<div class="result-kv" style="margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-muted);">' +
+          'Next dividend: <strong>' + divData.amount + ' ' + (divData.currency || '') + '</strong> · ' +
+          divData.nextDate + est +
+          '</div>';
+      }
+
+      let feeBox = '';
+      if (feeData) {
+        let trusteeSheet = '';
+        if (feeData.trusteeFee != null) {
+          trusteeSheet = \`
+        <div class="sheets-box" style="margin-top:0.5rem;">
+          <div class="sheets-box-header">
+            <span class="sheets-box-label">Trustee fee (דמי נאמן)</span>
+            <button class="copy-btn" id="secTrusteeCopyBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <code id="secTrusteeFormulaCode"></code>
+        </div>\`;
+        }
+        feeBox = \`
+        <div class="sheets-box" style="margin-top:0.5rem;">
+          <div class="sheets-box-header">
+            <span class="sheets-box-label">Management fee (דמי ניהול)</span>
+            <button class="copy-btn" id="secFeeCopyBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <code id="secFeeFormulaCode"></code>
+        </div>\` + trusteeSheet;
+      }
+
+      let divBox = '';
+      if (divData) {
+        divBox = \`
+        <div class="sheets-box" style="margin-top:0.5rem;">
+          <div class="sheets-box-header">
+            <span class="sheets-box-label">Dividend amount</span>
+            <button class="copy-btn" id="secDivAmtCopyBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <code id="secDivAmtFormulaCode"></code>
+        </div>
+        <div class="sheets-box" style="margin-top:0.5rem;">
+          <div class="sheets-box-header">
+            <span class="sheets-box-label">Next dividend date</span>
+            <button class="copy-btn" id="secDivDateCopyBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <code id="secDivDateFormulaCode"></code>
+        </div>\`;
+      }
+
+      document.getElementById('secResultBody').innerHTML = metaBlock + \`
         <div class="sheets-box">
           <div class="sheets-box-header">
-            <span class="sheets-box-label">Google Sheets formula</span>
+            <span class="sheets-box-label">Price</span>
             <button class="copy-btn" id="secCopyBtn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               Copy
             </button>
           </div>
           <code id="secFormulaCode"></code>
-        </div>
-      \`;
-      document.getElementById('secFormulaCode').textContent = formula;
+        </div>\` + feeBox + divBox;
+      document.getElementById('secFormulaCode').textContent = priceFormula;
       document.getElementById('secCopyBtn').addEventListener('click', function() {
-        copyFormula(this, formula);
+        copyFormula(this, priceFormula);
       });
+      if (feeData) {
+        document.getElementById('secFeeFormulaCode').textContent = feeFormula;
+        document.getElementById('secFeeCopyBtn').addEventListener('click', function() {
+          copyFormula(this, feeFormula);
+        });
+        if (feeData.trusteeFee != null) {
+          document.getElementById('secTrusteeFormulaCode').textContent = trusteeFormula;
+          document.getElementById('secTrusteeCopyBtn').addEventListener('click', function() {
+            copyFormula(this, trusteeFormula);
+          });
+        }
+      }
+      if (divData) {
+        document.getElementById('secDivAmtFormulaCode').textContent = divAmountFormula;
+        document.getElementById('secDivDateFormulaCode').textContent = divDateFormula;
+        document.getElementById('secDivAmtCopyBtn').addEventListener('click', function() {
+          copyFormula(this, divAmountFormula);
+        });
+        document.getElementById('secDivDateCopyBtn').addEventListener('click', function() {
+          copyFormula(this, divDateFormula);
+        });
+      }
     }
 
     // ── BOI Rate ──
