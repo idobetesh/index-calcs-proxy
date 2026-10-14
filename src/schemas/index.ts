@@ -58,8 +58,16 @@ export const stockSearchQuerySchema = z.object({
     ),
 });
 
+export const fearGreedQuerySchema = z.object({
+  market: z.enum(['crypto', 'stocks'] as const, {
+    message: 'Invalid "market". Must be "crypto" or "stocks".',
+  }),
+  format: z.enum(['text', 'json'] as const).default('text'),
+});
+
 export type CalcQuery = z.infer<typeof calcQuerySchema>;
 export type EtfQuery = z.infer<typeof etfQuerySchema>;
 export type MarketStatusQuery = z.infer<typeof marketStatusQuerySchema>;
 export type StockQuery = z.infer<typeof stockQuerySchema>;
 export type StockSearchQuery = z.infer<typeof stockSearchQuerySchema>;
+export type FearGreedQuery = z.infer<typeof fearGreedQuerySchema>;

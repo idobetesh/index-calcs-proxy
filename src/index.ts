@@ -9,6 +9,7 @@ import { stockSearchController } from './controllers/stockSearch.js';
 import { marketController } from './controllers/market.js';
 import { marketStatusController } from './controllers/marketStatus.js';
 import { rateController } from './controllers/rate.js';
+import { fearGreedController } from './controllers/fearGreed.js';
 import { uiController } from './views/ui.js';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -24,5 +25,6 @@ app.get('/stock/search', authMiddleware, stockSearchController);
 app.get('/market', authMiddleware, marketController);
 app.get('/market-status', authMiddleware, marketStatusController);
 app.get('/rate', authMiddleware, rateController);
+app.get('/fear-greed', authMiddleware, fearGreedController);
 
 export default app;

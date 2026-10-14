@@ -3,7 +3,7 @@
  *
  * Usage in any cell:
  *   =WORKER("health")
- *   =WORKER("rate?format=text")
+ *   =BOI_RATE() / =PRIME_RATE()  (preferred over WORKER("rate?format=text"))
  *   =WORKER("calc?amount=1000000&from=2023-01&index=cpi")
  *
  * @param {string} path - Path + query string (e.g. "calc?amount=100&from=2024-01")

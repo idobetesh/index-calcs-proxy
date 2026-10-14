@@ -20,11 +20,44 @@ jobs:
         run: npm install -g @google/clasp
 
       - name: Set up clasp credentials
-        run: echo '${{ secrets.CLASP_RC }}' > ~/.clasprc.json
+        env:
+          CLASP_RC: ${{ secrets.CLASP_RC }}
+        run: |
+          if [ -z "$CLASP_RC" ]; then
+            echo "::error::CLASP_RC secret is missing or empty"
+            exit 1
+          fi
+          printf '%s' "$CLASP_RC" > ~/.clasprc.json
+          node -e "
+            const fs = require('fs');
+            const p = process.env.HOME + '/.clasprc.json';
+            let j;
+            try { j = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) {
+              console.error('::error::CLASP_RC is not valid JSON — re-copy ~/.clasprc.json after clasp login');
+              process.exit(1);
+            }
+            const t = j.tokens && j.tokens.default;
+            if (!t || !t.refresh_token) {
+              console.error('::error::CLASP_RC missing tokens.default.refresh_token — run clasp login and update the secret');
+              process.exit(1);
+            }
+          "
 
       - name: Set up .clasp.json
+        env:
+          CLASP_SCRIPT_ID: ${{ secrets.CLASP_SCRIPT_ID }}
         run: |
-          echo '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}' > gs/.clasp.json
+          if [ -z "$CLASP_SCRIPT_ID" ]; then
+            echo "::error::CLASP_SCRIPT_ID secret is missing or empty"
+            exit 1
+          fi
+          node -e "
+            const fs = require('fs');
+            fs.writeFileSync(
+              'gs/.clasp.json',
+              JSON.stringify({ scriptId: process.env.CLASP_SCRIPT_ID, rootDir: 'src' })
+            );
+          "
 
       - name: Push to Apps Script
         run: cd gs && clasp push --force

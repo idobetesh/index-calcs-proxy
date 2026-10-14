@@ -109,13 +109,37 @@ After pushing, the custom functions are available in any cell:
 
 Returns `ok` if the worker is up.
 
-### BOI Interest Rate
+### BOI interest rate and prime
 
 ```
-=WORKER("rate?format=text")
+=BOI_RATE()                              → e.g. 4 (percent)
+=PRIME_RATE()                            → BOI + 1.5 (e.g. 5.5)
+=TEXT(BOI_RATE(), "0.00") & "%"
 ```
 
-Returns the current Bank of Israel rate as plain text (e.g. `4.00`).
+Worker `/rate` is cached ~1 hour at the edge. Same as `=WORKER("rate?format=text")` but returns a number.
+
+### Fear & Greed (stocks and crypto)
+
+One function; **`format=json` on the Worker** is parsed into a **single spilled row** (Sheets cannot display a JSON object in one cell):
+
+| Col | Field                                      |
+| --- | ------------------------------------------ |
+| 1   | `value` (0–100) — same cell as the formula |
+| 2   | `rating` (e.g. `fear`)                     |
+| 3   | `market`                                   |
+| 4   | `source`                                   |
+| 5   | `timestamp` (ISO)                          |
+
+```
+=FEAR_GREED()                    → stocks (default)
+=FEAR_GREED("crypto")
+=INDEX(FEAR_GREED(), 1, 2)       → rating text (e.g. fear)
+```
+
+Cached in **Apps Script** (~30 min per market) and on the **Worker** edge (`max-age=1800`). Use **Format → Conditional formatting** on the **value** cell (column 1).
+
+**US stocks:** score and rating from [CNN Fear & Greed](https://www.cnn.com/markets/fear-and-greed) when `source` is `cnn`. **Crypto:** [alternative.me](https://alternative.me/crypto/fear-and-greed-index/).
 
 ### Market Status
 
@@ -152,12 +176,14 @@ Returns two lines — use `INDEX()` to extract:
 ### Security price
 
 ```
-=WORKER("price?id=1159235&format=text")
-=WORKER("price?id=AAPL&format=text")
-=WORKER("price?id=TEVA.TA&format=text")
+=PRICE(1150572)              → TASE (agorot, integer)
+=PRICE("AAPL")               → ticker (native currency)
+=WORKER("price?id=1159235&format=text")   → same as PRICE()
 ```
 
-Returns the current price of a security. Accepts either a TASE security number (6–10 digits, returns price in ILA אגורות) or a ticker symbol like `AAPL`, `TEVA.TA`, `SPY` (returns price in the security's native currency).
+`PRICE()` calls the Worker `/price` endpoint (Maya → TASE → Jina fallbacks on the server). TASE numeric ids return **ILA agorot** (אגורות); tickers return the quote currency (e.g. USD).
+
+Worker responses are **cached ~10 minutes** at the edge (`Cache-Control: max-age=600`). Apps Script does not add a separate price cache — each formula recalc calls the Worker unless the edge cache hits.
 
 ### Market open/closed (typed helper)
 
@@ -252,6 +278,9 @@ gs/
     markets.gs       # MARKET_OPEN() and getAllMarketStatuses()
     calc.gs          # CALC_INDEX(), CALC_AMOUNT(), CALC_PERCENT()
     hon-index.gs     # HONINDEX() — hon.co.il index (cached)
+    price.gs         # PRICE() — TASE / ticker via Worker
+    rate.gs          # BOI_RATE(), PRIME_RATE()
+    fear-greed.gs    # FEAR_GREED()
     triggers.gs      # installTriggers() / uninstallTriggers() / refreshMarketData()
     appsscript.json  # Apps Script manifest (runtime, timezone, OAuth scopes)
   .clasp.json        # Script ID + rootDir — gitignored, create locally (see step 4)
@@ -262,14 +291,15 @@ gs/
 
 ## Troubleshooting
 
-| Symptom                     | Fix                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------ |
-| `#ERROR!` in cell           | Open Apps Script editor → View → Logs to see the error                         |
-| `clasp push` fails with 403 | Make sure Apps Script API is enabled (step 2) and you're logged in             |
-| Function not found in sheet | After `clasp push`, reload the sheet — new functions take a moment to appear   |
-| `SECRET_KEY` missing        | Check Project Settings → Script properties — make sure `SECRET_KEY` is set     |
-| Worker returns 401          | Wrong secret in Script Properties — verify it matches Cloudflare               |
-| Rate limit errors           | You're hitting Google's 6min/day limit — use time triggers to spread calls out |
+| Symptom                                                            | Fix                                                                                                                                                                                                |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#ERROR!` in cell                                                  | Open Apps Script editor → View → Logs to see the error                                                                                                                                             |
+| `clasp push` fails with 403                                        | Make sure Apps Script API is enabled (step 2) and you're logged in                                                                                                                                 |
+| Function not found in sheet                                        | After `clasp push`, reload the sheet — new functions take a moment to appear                                                                                                                       |
+| `SECRET_KEY` missing                                               | Check Project Settings → Script properties — make sure `SECRET_KEY` is set                                                                                                                         |
+| Worker returns 401                                                 | Wrong secret in Script Properties — verify it matches Cloudflare                                                                                                                                   |
+| Rate limit errors                                                  | You're hitting Google's 6min/day limit — use time triggers to spread calls out                                                                                                                     |
+| **Deploy Apps Script** CI fails (`access_token` / `invalid_grant`) | GitHub → **Settings → Secrets**: update **`CLASP_RC`** with the full contents of `~/.clasprc.json` after `clasp login`. Verify **`CLASP_SCRIPT_ID`**. Test locally: `cd gs && clasp push --force`. |
 
 ---
 

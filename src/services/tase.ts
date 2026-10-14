@@ -5,6 +5,45 @@ export type { TaseQuote };
 
 const TIMEOUT_MS = 8_000;
 
+const DIRECT_API_SOURCES = new Set(['maya-mutual', 'maya-etf', 'tase-inday']);
+
+/**
+ * All TASE quotes use price in ILA (agorot, 1/100 ILS).
+ * Maya/TASE JSON APIs already return agorot. Scraped (Jina) pages may show NIS decimals.
+ */
+export function normalizeTasePriceAgurot(raw: number, source: string): number {
+  if (!Number.isFinite(raw) || raw <= 0) {
+    throw new Error(`Invalid TASE price: ${raw}`);
+  }
+
+  let agorot = raw;
+  if (!DIRECT_API_SOURCES.has(source)) {
+    const hasFraction = Math.abs(raw - Math.round(raw)) > 1e-9;
+    if (hasFraction) {
+      agorot = raw * 100;
+    }
+  }
+
+  return Math.round(agorot);
+}
+
+function toTaseQuote(
+  id: string,
+  name: string,
+  rawPrice: number,
+  date: string,
+  source: string,
+): TaseQuote {
+  return {
+    id,
+    name,
+    price: normalizeTasePriceAgurot(rawPrice, source),
+    currency: 'ILA',
+    date,
+    source,
+  };
+}
+
 /**
  * Source 1: Maya TASE mutual funds API.
  * Covers open-ended funds — security IDs typically starting with 5.
@@ -20,14 +59,7 @@ async function fetchMayaMutual(id: string): Promise<TaseQuote> {
   const data = json as MayaFundResponse;
   const raw = data.purchasePrice ?? data.redemptionPrice;
   if (!raw) throw new Error('[maya-mutual] No price in response');
-  return {
-    id,
-    name: data.name ?? '',
-    price: raw,
-    currency: 'ILA',
-    date: data.ratesAsOf ?? '',
-    source: 'maya-mutual',
-  };
+  return toTaseQuote(id, data.name ?? '', raw, data.ratesAsOf ?? '', 'maya-mutual');
 }
 
 /**
@@ -45,14 +77,7 @@ async function fetchMayaEtf(id: string): Promise<TaseQuote> {
   const data = json as MayaFundResponse;
   const raw = data.purchasePrice ?? data.redemptionPrice;
   if (!raw) throw new Error('[maya-etf] No price in response');
-  return {
-    id,
-    name: data.name ?? '',
-    price: raw,
-    currency: 'ILA',
-    date: data.ratesAsOf ?? '',
-    source: 'maya-etf',
-  };
+  return toTaseQuote(id, data.name ?? '', raw, data.ratesAsOf ?? '', 'maya-etf');
 }
 
 /**
@@ -85,14 +110,7 @@ async function fetchTaseInDay(id: string): Promise<TaseQuote> {
   const raw = inDay.length > 0 ? inDay[inDay.length - 1]?.pval : data.baseInfo?.brte;
   if (!raw) throw new Error('[tase-inday] No price in response');
 
-  return {
-    id,
-    name: '',
-    price: raw,
-    currency: 'ILA',
-    date: data.baseInfo?.dte ?? '',
-    source: 'tase-inday',
-  };
+  return toTaseQuote(id, '', raw, data.baseInfo?.dte ?? '', 'tase-inday');
 }
 
 interface JinaSource {
@@ -159,7 +177,7 @@ async function fetchViaJina(id: string, source: JinaSource): Promise<TaseQuote> 
   if (price == null || isNaN(price) || price <= 0) {
     throw new Error(`[${source.name}] Could not parse price from rendered content`);
   }
-  return { id, name: '', price, currency: 'ILA', date: '', source: source.name };
+  return toTaseQuote(id, '', price, '', source.name);
 }
 
 /**
