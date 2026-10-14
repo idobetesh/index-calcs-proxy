@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import app from '../src/index.js';
 import * as mgmtService from '../src/services/managementFee.js';
+import type { ManagementFeeResult } from '../src/types/managementFee.js';
 
 const MOCK_FEE = {
   id: '1150572',
@@ -56,7 +57,7 @@ describe('GET /mgmt-fee', () => {
       env,
     );
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as ManagementFeeResult;
     expect(body.managementFee).toBe(0.25);
     expect(body.trusteeFee).toBe(0.03);
     expect(body.source).toBe('maya-etf');

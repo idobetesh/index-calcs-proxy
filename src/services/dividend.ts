@@ -37,20 +37,23 @@ function projectNext(events: DivEvent[]): { date: Date; amount: number; estimate
     .filter((e) => startOfUtcDay(e.date) > now)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  if (future.length > 0) {
-    const next = future[0];
-    return { date: next.date, amount: next.amount, estimate: false };
-  }
-
-  if (past.length === 0) {
-    throw new Error('No dividend history found.');
+  const nextFuture = future[0];
+  if (nextFuture) {
+    return { date: nextFuture.date, amount: nextFuture.amount, estimate: false };
   }
 
   const last = past[0];
+  if (!last) {
+    throw new Error('No dividend history found.');
+  }
+
   if (past.length >= 2) {
     const gaps: number[] = [];
     for (let i = 0; i < Math.min(4, past.length - 1); i++) {
-      gaps.push(past[i].date.getTime() - past[i + 1].date.getTime());
+      const cur = past[i];
+      const prev = past[i + 1];
+      if (!cur || !prev) continue;
+      gaps.push(cur.date.getTime() - prev.date.getTime());
     }
     gaps.sort((a, b) => a - b);
     const median = gaps[Math.floor(gaps.length / 2)] ?? 0;

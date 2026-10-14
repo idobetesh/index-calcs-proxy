@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import app from '../src/index.js';
 import * as divService from '../src/services/dividend.js';
+import type { DividendResult } from '../src/types/dividend.js';
 
 const MOCK_DIV = {
   id: 'AAPL',
@@ -46,7 +47,7 @@ describe('GET /dividend', () => {
       makeRequest('/dividend?id=AAPL&format=json&secret=test-secret'),
       env,
     );
-    const body = await res.json();
+    const body = (await res.json()) as DividendResult;
     expect(body.nextDate).toBe('2026-11-10');
     expect(body.amount).toBe(0.27);
   });
