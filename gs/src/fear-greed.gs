@@ -26,12 +26,25 @@ function fearGreedRow_(market) {
   const cacheKey = 'fear_greed_' + market;
   const cached = cache.get(cacheKey);
   if (cached !== null) {
-    return JSON.parse(cached);
+    const row = JSON.parse(cached);
+    row[1] = capitalizeFirst_(row[1]);
+    return row;
   }
 
   const row = fetchFearGreedRow_(market);
   cache.put(cacheKey, JSON.stringify(row), FEAR_GREED_CACHE_TTL_SEC);
   return row;
+}
+
+/** Title-case each word: extreme fear → Extreme Fear */
+function capitalizeFirst_(text) {
+  const s = String(text ?? '').trim();
+  if (s === '') {
+    return '';
+  }
+  return s.toLowerCase().split(/\s+/).map(function (word) {
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
 }
 
 /**
@@ -54,7 +67,7 @@ function fetchFearGreedRow_(market) {
 
   return [
     Math.round(value),
-    String(data.rating ?? ''),
+    capitalizeFirst_(data.rating),
     String(data.market ?? market),
     String(data.source ?? ''),
     String(data.timestamp ?? ''),
