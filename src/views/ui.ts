@@ -2251,8 +2251,8 @@ function buildHtml(secret: string): string {
       }
 
       const formula = /^\d+$/.test(String(data.id))
-        ? '=PRICE(' + data.id + ')'
-        : '=PRICE("' + data.id + '")';
+        ? '=SEC_PRICE(' + data.id + ')'
+        : '=SEC_PRICE("' + data.id + '")';
       document.getElementById('secResultBody').innerHTML = \`
         <div class="sheets-box">
           <div class="sheets-box-header">

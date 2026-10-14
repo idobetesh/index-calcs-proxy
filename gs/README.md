@@ -126,7 +126,7 @@ One function; **`format=json` on the Worker** is parsed into a **single spilled 
 | Col | Field                                      |
 | --- | ------------------------------------------ |
 | 1   | `value` (0–100) — same cell as the formula |
-| 2   | `rating` (e.g. `fear`)                     |
+| 2   | `rating` (e.g. `Fear`, `Extreme Fear`)     |
 | 3   | `market`                                   |
 | 4   | `source`                                   |
 | 5   | `timestamp` (ISO)                          |
@@ -134,7 +134,7 @@ One function; **`format=json` on the Worker** is parsed into a **single spilled 
 ```
 =FEAR_GREED()                    → stocks (default)
 =FEAR_GREED("crypto")
-=INDEX(FEAR_GREED(), 1, 2)       → rating text (e.g. fear)
+=INDEX(FEAR_GREED(), 1, 2)       → rating text (title case)
 ```
 
 Cached in **Apps Script** (~30 min per market) and on the **Worker** edge (`max-age=1800`). Use **Format → Conditional formatting** on the **value** cell (column 1).
@@ -176,12 +176,12 @@ Returns two lines — use `INDEX()` to extract:
 ### Security price
 
 ```
-=PRICE(1150572)              → TASE (agorot, integer)
-=PRICE("AAPL")               → ticker (native currency)
-=WORKER("price?id=1159235&format=text")   → same as PRICE()
+=SEC_PRICE(1150572)              → TASE (agorot, integer)
+=SEC_PRICE("AAPL")               → ticker (native currency)
+=WORKER("price?id=1159235&format=text")   → same as SEC_PRICE()
 ```
 
-`PRICE()` calls the Worker `/price` endpoint (Maya → TASE → Jina fallbacks on the server). TASE numeric ids return **ILA agorot** (אגורות); tickers return the quote currency (e.g. USD).
+`SEC_PRICE()` calls the Worker `/price` endpoint (Maya → TASE → Jina fallbacks on the server). TASE numeric ids return **ILA agorot** (אגורות); tickers return the quote currency (e.g. USD).
 
 Worker responses are **cached ~10 minutes** at the edge (`Cache-Control: max-age=600`). Apps Script does not add a separate price cache — each formula recalc calls the Worker unless the edge cache hits.
 
@@ -278,7 +278,7 @@ gs/
     markets.gs       # MARKET_OPEN() and getAllMarketStatuses()
     calc.gs          # CALC_INDEX(), CALC_AMOUNT(), CALC_PERCENT()
     hon-index.gs     # HONINDEX() — hon.co.il index (cached)
-    price.gs         # PRICE() — TASE / ticker via Worker
+    price.gs         # SEC_PRICE() — TASE / ticker via Worker
     rate.gs          # BOI_RATE(), PRIME_RATE()
     fear-greed.gs    # FEAR_GREED()
     triggers.gs      # installTriggers() / uninstallTriggers() / refreshMarketData()

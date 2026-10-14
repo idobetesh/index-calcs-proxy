@@ -2,9 +2,9 @@
  * Security price via Worker /price (TASE id or ticker).
  *
  * Usage:
- *   =PRICE(1150572)        → TASE price in agorot (integer)
- *   =PRICE("AAPL")         → USD price (may include decimals)
- *   =PRICE(A1)             → id from cell
+ *   =SEC_PRICE(1150572)        → TASE price in agorot (integer)
+ *   =SEC_PRICE("AAPL")         → USD price (may include decimals)
+ *   =SEC_PRICE(A1)             → id from cell
  */
 
 /**
@@ -12,7 +12,7 @@
  * @returns {number}
  * @customfunction
  */
-function PRICE(id) {
+function SEC_PRICE(id) {
   const cleaned = String(id ?? '')
     .trim()
     .replace(/[^A-Za-z0-9.\-]/g, '');
