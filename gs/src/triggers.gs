@@ -34,7 +34,7 @@ function refreshMarketData() {
   // const dashboard = ss.getSheetByName('Dashboard');
   // dashboard.getRange('B2').setValue(MARKET_OPEN('tase'));
   // dashboard.getRange('C2').setValue(MARKET_OPEN('nyse'));
-  // dashboard.getRange('D2').setValue(parseFloat(WORKER('rate?format=text')));
+  // dashboard.getRange('D2').setValue(BOI_RATE());
   // ──────────────────────────────────────────────────────────────────────────
 
   Logger.log('refreshMarketData: OK at ' + new Date().toISOString());

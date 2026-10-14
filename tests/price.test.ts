@@ -142,6 +142,22 @@ describe('GET /price - upstream errors', () => {
   });
 });
 
+// ── normalizeTasePriceAgurot ───────────────────────────────────────────────────
+
+describe('normalizeTasePriceAgurot', () => {
+  it('keeps Maya API values as integer agorot', () => {
+    expect(taseService.normalizeTasePriceAgurot(57615.4, 'maya-mutual')).toBe(57615);
+  });
+
+  it('converts scraped NIS decimals to agorot', () => {
+    expect(taseService.normalizeTasePriceAgurot(97.42, 'jina-themarker')).toBe(9742);
+  });
+
+  it('keeps scraped integer agorot unchanged', () => {
+    expect(taseService.normalizeTasePriceAgurot(33750, 'jina-bizportal')).toBe(33750);
+  });
+});
+
 // ── fetchTaseQuote - fallback logic ────────────────────────────────────────────
 
 describe('fetchTaseQuote - source fallback', () => {

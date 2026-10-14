@@ -819,8 +819,69 @@ function buildHtml(secret: string): string {
       text-decoration: underline;
       color: var(--accent);
     }
+    .fng-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .fng-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.75rem 0.4rem 0.65rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .fng-cell-name {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .fng-gauge-wrap {
+      width: 100%;
+      max-width: 220px;
+      position: relative;
+    }
+    .fng-gauge-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .fng-gauge-score {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem;
+      font-weight: 700;
+      fill: var(--text);
+    }
+    .fng-gauge-label {
+      font-size: 0.52rem;
+      fill: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .fng-needle {
+      transition: transform 0.85s cubic-bezier(0.34, 1.2, 0.64, 1);
+    }
+    .fng-badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: capitalize;
+    }
+    .fng-extreme-fear { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+    .fng-fear         { background: rgba(251, 146, 60, 0.12); color: var(--yellow); border: 1px solid rgba(251, 146, 60, 0.35); }
+    .fng-neutral      { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .fng-greed        { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+    .fng-extreme-greed { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); box-shadow: 0 0 8px rgba(52,211,153,0.25); }
     @media (max-width: 480px) {
       .market-grid { grid-template-columns: 1fr; }
+      .fng-grid { grid-template-columns: 1fr; }
     }
     .today-btn {
       font-size: 0.68rem;
@@ -1189,6 +1250,18 @@ function buildHtml(secret: string): string {
       <div class="market-loading">Loading…</div>
     </div>
     <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:right;">Holiday-aware · Updates every 60s</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="badge">🎭 Sentiment</div>
+      <h1>Fear &amp; Greed</h1>
+      <p>US equities (CNN) and crypto (alternative.me)</p>
+    </div>
+    <div id="fearGreedGrid" class="fng-grid">
+      <div class="market-loading" style="grid-column:1/-1;">Loading…</div>
+    </div>
+    <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:right;">Sheets: <code style="font-size:0.68rem;">=FEAR_GREED()</code> · <code style="font-size:0.68rem;">=FEAR_GREED("crypto")</code> · cached 30m</p>
   </div>
   </div>
   </div>
@@ -1761,6 +1834,8 @@ function buildHtml(secret: string): string {
     // ── Ticker ──
     const TICKER_ITEMS = [
       { label: 'BOI RATE', type: 'rate'   },
+      { label: 'F&G STOCKS', type: 'fng' },
+      { label: 'F&G CRYPTO', type: 'fng' },
       { label: 'USD/ILS', type: 'fiat'   },
       { label: 'EUR/ILS', type: 'fiat'   },
       { label: 'GBP/ILS', type: 'fiat'   },
@@ -1777,12 +1852,122 @@ function buildHtml(secret: string): string {
 
     let prevRates = {};
 
+    const FNG_URLS = {
+      stocks: 'https://www.cnn.com/markets/fear-and-greed',
+      crypto: 'https://alternative.me/crypto/fear-and-greed-index/',
+    };
+
+    function formatFngRating(rating) {
+      if (!rating) return '';
+      return String(rating)
+        .trim()
+        .split(/\\s+/)
+        .map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); })
+        .join(' ');
+    }
+
+    function fngSentimentClass(rating) {
+      const r = String(rating || '').toLowerCase();
+      if (r.indexOf('extreme fear') !== -1) return 'fng-extreme-fear';
+      if (r.indexOf('extreme greed') !== -1) return 'fng-extreme-greed';
+      if (r.indexOf('fear') !== -1) return 'fng-fear';
+      if (r.indexOf('greed') !== -1) return 'fng-greed';
+      return 'fng-neutral';
+    }
+
+    function fngGaugePoint(value, cx, cy, radius) {
+      const angle = Math.PI * (1 - value / 100);
+      return {
+        x: cx + radius * Math.cos(angle),
+        y: cy - radius * Math.sin(angle),
+      };
+    }
+
+    function fngArcSegment(v1, v2, cx, cy, radius, color, width) {
+      const p1 = fngGaugePoint(v1, cx, cy, radius);
+      const p2 = fngGaugePoint(v2, cx, cy, radius);
+      const large = (v2 - v1) > 50 ? 1 : 0;
+      return '<path d="M ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) +
+        ' A ' + radius + ' ' + radius + ' 0 ' + large + ' 1 ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2) +
+        '" fill="none" stroke="' + color + '" stroke-width="' + width + '" stroke-linecap="butt"/>';
+    }
+
+    function buildFngGaugeSvg(gaugeId, value) {
+      const v = Math.max(0, Math.min(100, Math.round(Number(value))));
+      const cx = 110;
+      const cy = 96;
+      const r = 76;
+      const rot = -90 + (v / 100) * 180;
+      const segments = [
+        [0, 25, '#dc2626'],
+        [25, 45, '#ea580c'],
+        [45, 55, '#64748b'],
+        [55, 75, '#65a30d'],
+        [75, 100, '#059669'],
+      ];
+      let arcs = fngArcSegment(0, 100, cx, cy, r, 'var(--border)', 12);
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        arcs += fngArcSegment(seg[0], seg[1], cx, cy, r, seg[2], 10);
+      }
+      const tickVals = [0, 25, 50, 75, 100];
+      let ticks = '';
+      for (let j = 0; j < tickVals.length; j++) {
+        const tv = tickVals[j];
+        const outer = fngGaugePoint(tv, cx, cy, r + 6);
+        const inner = fngGaugePoint(tv, cx, cy, r - 2);
+        ticks += '<line x1="' + inner.x.toFixed(1) + '" y1="' + inner.y.toFixed(1) +
+          '" x2="' + outer.x.toFixed(1) + '" y2="' + outer.y.toFixed(1) +
+          '" stroke="var(--text-muted)" stroke-width="1" opacity="0.45"/>';
+      }
+      return '<svg class="fng-gauge-svg" viewBox="0 0 220 118" role="img" aria-label="Fear and greed index ' + v + '">' +
+        '<defs><filter id="fngShadow-' + gaugeId + '"><feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.35"/></filter></defs>' +
+        arcs +
+        ticks +
+        '<text x="4" y="107" text-anchor="start" class="fng-gauge-label">Extreme Fear</text>' +
+        '<text x="216" y="107" text-anchor="end" class="fng-gauge-label">Extreme Greed</text>' +
+        '<text x="' + cx + '" y="78" text-anchor="middle" class="fng-gauge-score">' + v + '</text>' +
+        '<g transform="translate(' + cx + ',' + cy + ')">' +
+        '<g class="fng-needle" transform="rotate(' + rot.toFixed(2) + ')">' +
+        '<line x1="0" y1="4" x2="0" y2="-58" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" filter="url(#fngShadow-' + gaugeId + ')"/>' +
+        '<polygon points="0,-62 -4,-52 4,-52" fill="var(--text)"/>' +
+        '</g>' +
+        '<circle r="7" fill="var(--surface)" stroke="var(--border)" stroke-width="2"/>' +
+        '<circle r="2.5" fill="var(--text-muted)"/>' +
+        '</g>' +
+        '</svg>';
+    }
+
+    function renderFearGreed(stocks, crypto) {
+      const grid = document.getElementById('fearGreedGrid');
+      if (!grid) return;
+      const cells = [
+        { key: 'stocks', data: stocks, title: '🇺🇸 US Stocks' },
+        { key: 'crypto', data: crypto, title: '₿ Crypto' },
+      ];
+      const html = cells.map(function(c) {
+        if (!c.data || c.data.error || c.data.value == null) return '';
+        const rating = formatFngRating(c.data.rating);
+        const cls = fngSentimentClass(c.data.rating);
+        const src = c.data.source ? (' · ' + c.data.source) : '';
+        const val = Math.round(c.data.value);
+        return '<div class="fng-cell">' +
+          '<div class="fng-cell-name"><a href="' + FNG_URLS[c.key] + '" target="_blank" rel="noopener noreferrer" class="market-link">' + c.title + ' ↗</a></div>' +
+          '<div class="fng-gauge-wrap">' + buildFngGaugeSvg(c.key, val) + '</div>' +
+          '<span class="fng-badge ' + cls + '" title="' + (c.data.timestamp || '') + src + '">' + rating + '</span>' +
+          '</div>';
+      }).join('');
+      grid.innerHTML = html || '<div class="market-loading" style="grid-column:1/-1;">Unavailable</div>';
+    }
+
     async function fetchTicker() {
-      const [fiatRes, cryptoRes, marketRes, rateRes] = await Promise.allSettled([
+      const [fiatRes, cryptoRes, marketRes, rateRes, fngStocksRes, fngCryptoRes] = await Promise.allSettled([
         fetch('https://api.frankfurter.app/latest?from=ILS&to=USD,EUR,GBP').then(r => r.json()),
         fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true').then(r => r.json()),
         fetch('/market?secret=' + SECRET).then(r => r.json()),
         fetch('/rate?secret=' + SECRET).then(r => r.json()),
+        fetch('/fear-greed?market=stocks&format=json&secret=' + SECRET).then(r => r.json()),
+        fetch('/fear-greed?market=crypto&format=json&secret=' + SECRET).then(r => r.json()),
       ]);
 
       const rates = {};
@@ -1832,6 +2017,22 @@ function buildHtml(secret: string): string {
           chip.setAttribute('data-tooltip', buildRateTooltip(r));
           chip.classList.add('loaded');
         }
+      }
+
+      const fngStocks = fngStocksRes.status === 'fulfilled' ? fngStocksRes.value : null;
+      const fngCrypto = fngCryptoRes.status === 'fulfilled' ? fngCryptoRes.value : null;
+      if (fngStocks && fngStocks.value != null) {
+        rates['F&G STOCKS'] = {
+          value: Math.round(fngStocks.value) + ' · ' + formatFngRating(fngStocks.rating),
+        };
+      }
+      if (fngCrypto && fngCrypto.value != null) {
+        rates['F&G CRYPTO'] = {
+          value: Math.round(fngCrypto.value) + ' · ' + formatFngRating(fngCrypto.rating),
+        };
+      }
+      if (fngStocks || fngCrypto) {
+        renderFearGreed(fngStocks, fngCrypto);
       }
 
       if (Object.keys(rates).length) {
@@ -2049,7 +2250,9 @@ function buildHtml(secret: string): string {
           '<a href="' + yahooUrl + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.7;text-underline-offset:2px;">Yahoo ↗</a>';
       }
 
-      const formula = '=WORKER("price?id=' + data.id + '&format=text")';
+      const formula = /^\d+$/.test(String(data.id))
+        ? '=PRICE(' + data.id + ')'
+        : '=PRICE("' + data.id + '")';
       document.getElementById('secResultBody').innerHTML = \`
         <div class="sheets-box">
           <div class="sheets-box-header">

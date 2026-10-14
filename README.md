@@ -101,8 +101,12 @@ Returns the current price of a security. Accepts either a **TASE security number
 **Text response** (default, for Google Sheets):
 
 ```
-576.15
+57615
 ```
+
+(TASE ids: plain number is **agorot** — divide by 100 for ₪. Tickers: native currency units, e.g. `213.49` USD.)
+
+**Caching:** responses are stored in Cloudflare’s cache for **10 minutes** per `id` + format (`Cache-Control: public, max-age=600` in `price.ts`).
 
 **JSON response** (`format=json`) — TASE security:
 
@@ -163,6 +167,38 @@ Returns the current Bank of Israel interest rate (ריבית בנק ישראל).
 ```
 
 `Cache-Control: public, max-age=3600`
+
+---
+
+### `GET /fear-greed`
+
+Returns the **Fear & Greed** sentiment index (0–100) for **US stocks** or **crypto**.
+
+**Query parameters**
+
+| Parameter | Required | Description                                       |
+| --------- | -------- | ------------------------------------------------- |
+| `market`  | Yes      | `stocks` (CNN-style US market) or `crypto`        |
+| `format`  | No       | `text` (default) or `json`                        |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer` header) |
+
+**Text response** (default): a single integer, e.g. `41` — use with conditional formatting in Sheets (`FEAR_GREED()` col 1 for value, col 2 for rating).
+
+**JSON response** (`format=json`):
+
+```json
+{
+  "market": "crypto",
+  "value": 62,
+  "rating": "greed",
+  "source": "alternative.me",
+  "timestamp": "2026-03-17T00:00:00.000Z"
+}
+```
+
+**Sources:** crypto → [alternative.me FNG API](https://alternative.me/crypto/fear-and-greed-index/) (Jina fallback). **Stocks → CNN** [`production.dataviz.cnn.io`](https://www.cnn.com/markets/fear-and-greed): `value` is the rounded index shown on CNN; `rating` is CNN’s own label (not recomputed). Fallback: feargreedmeter via Jina (`source`: `feargreedmeter-jina`).
+
+`Cache-Control: public, max-age=1800`
 
 ---
 
@@ -270,19 +306,26 @@ ok
 
 ## Google Sheets
 
-Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET_KEY`** in Script properties (same value as the Worker secret). Formulas call `WORKER()` / helpers — the secret is not pasted in cells.
+Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET_KEY`** in Script properties (same value as the Worker secret). Formulas call helpers below — the secret is not pasted in cells.
 
-```
-=WORKER("health")
-=MARKET_OPEN("nyse")
-=CALC_AMOUNT(F3, G3, "cpi")              → HON first, then Worker
-=CALC_PERCENT(1, G3, "cpi")               → % change (amount can be 1)
-=HONINDEX(G3, F3, "cpi")                  → HON only
-=WORKER("price?id=1150572&format=text")   → TASE id or ticker (AAPL, TEVA.TA)
-=WORKER("rate?format=text")
-```
+### Custom functions
 
-Full setup: **[gs/README.md](gs/README.md)**.
+| Function       | Example                                          | Returns                                                                                                                                                                                            |
+| -------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CALC_AMOUNT`  | `=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")`    | Indexed amount (integer). HON first, then Worker.                                                                                                                                                  |
+| `CALC_PERCENT` | `=CALC_PERCENT(1, TEXT(G3,"YYYY-MM"), "cpi")`    | % change as decimal fraction (`TEXT(...,"0.00%")` for display).                                                                                                                                    |
+| `CALC_INDEX`   | `=CALC_INDEX(F3, TEXT(G3,"YYYY-MM"), "housing")` | Two lines: amount + fraction (`SPLIT` / `INDEX`).                                                                                                                                                  |
+| `HONINDEX`     | `=HONINDEX(G3, F3, "cpi")`                       | HON-only indexed amount (date, amount, type — note argument order).                                                                                                                                |
+| `PRICE`        | `=PRICE(1150572)` · `=PRICE("AAPL")`             | TASE price in **agorot** (integer) or ticker in native currency.                                                                                                                                   |
+| `BOI_RATE`     | `=BOI_RATE()`                                    | Bank of Israel rate (% number, e.g. `4`).                                                                                                                                                          |
+| `PRIME_RATE`   | `=PRIME_RATE()`                                  | Prime rate = BOI + 1.5%.                                                                                                                                                                           |
+| `FEAR_GREED`   | `=FEAR_GREED()` · `=FEAR_GREED("crypto")`        | Spills one row (formula cell = col 1): **1** `value` (0–100) · **2** `rating` · **3** `market` · **4** `source` · **5** `timestamp`. Default market: US stocks. Label: `=INDEX(FEAR_GREED(),1,2)`. |
+| `MARKET_OPEN`  | `=MARKET_OPEN("tase")`                           | `TRUE` / `FALSE` (tase, nyse, lse, six).                                                                                                                                                           |
+| `WORKER`       | `=WORKER("health")`                              | Raw Worker response (advanced; prefer typed helpers).                                                                                                                                              |
+
+`CALC_*` / `HONINDEX` index types: `cpi`, `construction`, `housing`.
+
+Full setup and troubleshooting: **[gs/README.md](gs/README.md)**.
 
 `IMPORTDATA` with `?secret=` still works but is optional; Apps Script is preferred (no URL secret in the sheet, better errors).
 
@@ -338,5 +381,6 @@ No other files need changing.
 - **TASE security prices**: [TASE Maya](https://maya.tase.co.il) (mutual funds, ETFs) · [TASE intraday API](https://api.tase.co.il) · [Jina Reader](https://jina.ai) (fallback)
 - **Global stock / ETF prices**: [Yahoo Finance](https://finance.yahoo.com) chart API · [Jina Reader](https://jina.ai) (fallback)
 - **BOI interest rate**: [Bank of Israel SDMX v2](https://edge.boi.gov.il)
+- **Fear & Greed (crypto)**: [alternative.me](https://api.alternative.me/fng/) · **(stocks)**: CNN dataviz · [feargreedmeter.com](https://feargreedmeter.com) via [Jina Reader](https://jina.ai) (fallback)
 - **Public holidays**: [Nager.Date](https://date.nager.at)
 - **Market data**: [Stooq](https://stooq.com) (Gold, Silver, S&P 500, NASDAQ, Russell, MSCI), [CBOE](https://www.cboe.com/tradable_products/vix/vix_historical_data/) (VIX), [Frankfurter](https://frankfurter.app) (USD/ILS, EUR/ILS, GBP/ILS), [CoinGecko](https://coingecko.com) (BTC, ETH)
