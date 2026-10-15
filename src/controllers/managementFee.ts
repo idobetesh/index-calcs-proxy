@@ -9,7 +9,7 @@ const CACHE_TTL_SECONDS = 24 * 60 * 60; // fees change rarely
  * GET /mgmt-fee?id=<id>[&format=json|text]
  *
  * Returns annual management fee (דמי ניהול) as percent (0.25 = 0.25%).
- * TASE ids: Maya mutual/ETF. Tickers: expense ratio via Yahoo (Jina).
+ * TASE ids: Maya mutual/ETF. Tickers: Yahoo HTML expense ratio, Jina/justETF fallback.
  */
 export async function managementFeeController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = etfQuerySchema.safeParse({

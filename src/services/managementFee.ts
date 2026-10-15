@@ -11,8 +11,16 @@ const YF_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const EXPENSE_RATIO_MARKER = /Expense Ratio[^0-9]*([\d.]+)\s*%/i;
+const YAHOO_EXPENSE_RAW = /"annualReportExpenseRatio"\s*:\s*\{\s*"raw"\s*:\s*([\d.E+-]+)/i;
+const YAHOO_EXPENSE_FMT = /"annualReportExpenseRatio"\s*:\s*\{[^}]*"fmt"\s*:\s*"([\d.]+)%"/i;
+const YAHOO_LONG_NAME = /"longName"\s*:\s*"([^"\\]+)"/;
 const UCITS_ISIN_MARKER = /\b(IE|LU|DE|FR|NL)[A-Z0-9]{10}\b/g;
 const JUSTETF_TER_MARKER = /total expense ratio[^*]*\*\*([\d.]+)\s*%/i;
+/** TASE major_data (Jina) — foreign / inday-listed funds not in Maya funds API. */
+const TASE_MAJOR_MGMT_FEE = /Management Fee \(%\)\s*\n+\s*([\d.]+)/i;
+const TASE_MAJOR_FUND_NAME = /Fund full name\s*\n+([^\n#]+)/i;
+const THEMARKER_MGMT_FEE = /דמי ניהול\s+([\d.]+)/;
+const THEMARKER_TRUSTEE_FEE = /דמי נאמן\s+([\d.]+)/;
 
 async function fetchMayaFund(path: 'etf' | 'mutual', id: string): Promise<MayaFundResponse> {
   const res = await fetchWithTimeout(
@@ -43,8 +51,79 @@ function fromMaya(id: string, data: MayaFundResponse, source: string): Managemen
   };
 }
 
+async function fetchJinaPage(url: string): Promise<string> {
+  const res = await fetchWithTimeout(
+    `https://r.jina.ai/${url}`,
+    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
+    JINA_TIMEOUT_MS,
+  );
+  if (!res.ok) throw new Error(`[jina] HTTP ${res.status}`);
+  const json = (await res.json()) as { data?: { content?: string } };
+  return json?.data?.content ?? '';
+}
+
+function parseFeePercent(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function fetchTaseFeeViaMajorData(id: string): Promise<ManagementFeeResult> {
+  const pageUrl = `https://market.tase.co.il/en/market_data/security/${id}/major_data`;
+  const content = await fetchJinaPage(pageUrl);
+  const managementFee = parseFeePercent(TASE_MAJOR_MGMT_FEE.exec(content)?.[1]);
+  if (managementFee == null) {
+    throw new Error('[tase-major-jina] No management fee in page');
+  }
+  const name = TASE_MAJOR_FUND_NAME.exec(content)?.[1]?.trim() ?? '';
+  return {
+    id,
+    name,
+    managementFee,
+    trusteeFee: null,
+    variableFee: null,
+    saleLoad: null,
+    managerName: '',
+    fundType: 'ETF',
+    source: 'tase-major-jina',
+  };
+}
+
+async function fetchTaseFeeViaTheMarker(id: string): Promise<ManagementFeeResult> {
+  const pageUrl = `http://finance.themarker.com/etf/${id}`;
+  const content = await fetchJinaPage(pageUrl);
+  const managementFee = parseFeePercent(THEMARKER_MGMT_FEE.exec(content)?.[1]);
+  if (managementFee == null) {
+    throw new Error('[themarker-jina] No management fee in page');
+  }
+  const trusteeFee = parseFeePercent(THEMARKER_TRUSTEE_FEE.exec(content)?.[1]);
+  return {
+    id,
+    name: '',
+    managementFee,
+    trusteeFee,
+    variableFee: null,
+    saleLoad: null,
+    managerName: '',
+    fundType: '',
+    source: 'themarker-jina',
+  };
+}
+
+async function fetchTaseManagementFeeFromScrape(id: string): Promise<ManagementFeeResult> {
+  const errors: string[] = [];
+  for (const source of [fetchTaseFeeViaMajorData, fetchTaseFeeViaTheMarker]) {
+    try {
+      return await source(id);
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+  throw new Error(errors.join('\n'));
+}
+
 /**
- * TASE fund / ETF by security number — Maya mutual + ETF APIs.
+ * TASE fund / ETF by security number — Maya APIs, then TASE / TheMarker pages (Jina).
  */
 export async function fetchTaseManagementFee(id: string): Promise<ManagementFeeResult> {
   const sources: Array<{ path: 'mutual' | 'etf'; label: string }> = [
@@ -62,29 +141,81 @@ export async function fetchTaseManagementFee(id: string): Promise<ManagementFeeR
     }
   }
 
-  const allNotFound = errors.every((e) => e.includes('404') || e.includes('HTTP 404'));
+  try {
+    return await fetchTaseManagementFeeFromScrape(id);
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+
+  const allNotFound = errors.every(
+    (e) =>
+      e.includes('404') ||
+      e.includes('HTTP 404') ||
+      e.includes('not found') ||
+      e.includes('No management fee'),
+  );
   if (allNotFound) {
-    throw new Error(
-      `Management fee not found for "${id}". Use a TASE mutual fund or ETF security number.`,
-    );
+    throw new Error(`Management fee not found for TASE security "${id}".`);
   }
   throw new Error(`All sources failed for "${id}":\n${errors.join('\n')}`);
-}
-
-async function fetchJinaPage(url: string): Promise<string> {
-  const res = await fetchWithTimeout(
-    `https://r.jina.ai/${url}`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-    JINA_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error(`[jina] HTTP ${res.status}`);
-  const json = (await res.json()) as { data?: { content?: string } };
-  return json?.data?.content ?? '';
 }
 
 function extractUcitsIsins(text: string): string[] {
   const found = text.match(UCITS_ISIN_MARKER) ?? [];
   return [...new Set(found)];
+}
+
+function parseExpensePercentFromYahooHtml(html: string): number {
+  const fmtMatch = YAHOO_EXPENSE_FMT.exec(html);
+  if (fmtMatch?.[1]) {
+    const pct = parseFloat(fmtMatch[1]);
+    if (Number.isFinite(pct)) return pct;
+  }
+  const rawMatch = YAHOO_EXPENSE_RAW.exec(html);
+  if (rawMatch?.[1]) {
+    const raw = parseFloat(rawMatch[1]);
+    if (Number.isFinite(raw) && raw > 0) {
+      return raw * 100;
+    }
+  }
+  const stripped = html.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+  const textMatch = EXPENSE_RATIO_MARKER.exec(stripped);
+  const pct = textMatch?.[1] ? parseFloat(textMatch[1]) : NaN;
+  return Number.isFinite(pct) ? pct : NaN;
+}
+
+function parseFundNameFromYahooHtml(html: string, fallback: string): string {
+  return YAHOO_LONG_NAME.exec(html)?.[1]?.trim() ?? fallback;
+}
+
+/** Direct Yahoo quote HTML — avoids Jina rate limits (429) for US/global tickers. */
+async function fetchTickerExpenseViaYahooHtml(ticker: string): Promise<ManagementFeeResult> {
+  const upper = ticker.toUpperCase();
+  const url = `https://finance.yahoo.com/quote/${encodeURIComponent(upper)}/`;
+  const res = await fetchWithTimeout(
+    url,
+    { headers: { 'User-Agent': YF_UA, Accept: 'text/html' } },
+    MAYA_TIMEOUT_MS,
+  );
+  if (!res.ok) throw new Error(`[yahoo-yf-fee] HTTP ${res.status}`);
+
+  const html = await res.text();
+  const pct = parseExpensePercentFromYahooHtml(html);
+  if (!Number.isFinite(pct)) {
+    throw new Error(`[yahoo-yf-fee] No expense ratio for "${upper}".`);
+  }
+
+  return {
+    id: upper,
+    name: parseFundNameFromYahooHtml(html, upper),
+    managementFee: pct,
+    trusteeFee: null,
+    variableFee: null,
+    saleLoad: null,
+    managerName: '',
+    fundType: 'ETF',
+    source: 'yahoo-html',
+  };
 }
 
 /** Yahoo profile HTML often embeds fund ISIN even when Jina quote text does not. */
@@ -187,12 +318,27 @@ async function fetchTickerExpenseViaJina(ticker: string): Promise<ManagementFeeR
   };
 }
 
+async function fetchTickerExpense(ticker: string): Promise<ManagementFeeResult> {
+  const errors: string[] = [];
+  try {
+    return await fetchTickerExpenseViaYahooHtml(ticker);
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+  try {
+    return await fetchTickerExpenseViaJina(ticker);
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+  throw new Error(errors.join('\n'));
+}
+
 /**
- * TASE numeric id → Maya; ticker → Yahoo expense ratio (Jina fallback).
+ * TASE numeric id → Maya; ticker → Yahoo HTML, then Jina / justETF fallbacks.
  */
 export async function fetchManagementFee(id: string): Promise<ManagementFeeResult> {
   if (/^\d+$/.test(id)) {
     return fetchTaseManagementFee(id);
   }
-  return fetchTickerExpenseViaJina(id);
+  return fetchTickerExpense(id);
 }

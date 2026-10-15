@@ -53,7 +53,7 @@ function yfChartDivResponse(dividends: Record<string, number>, currency = 'USD')
 
 describe('fetchDividend', () => {
   it('rejects TASE numeric ids', async () => {
-    await expect(fetchDividend('1150572')).rejects.toThrow(/not supported/i);
+    await expect(fetchDividend('1234567')).rejects.toThrow(/not supported/i);
   });
 
   it('uses announced future dividend from chart', async () => {
