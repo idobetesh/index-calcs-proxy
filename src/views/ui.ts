@@ -1207,7 +1207,7 @@ function buildHtml(secret: string): string {
     <div class="card-header">
       <div class="badge">📈 Securities</div>
       <h1>Price &amp; Fees</h1>
-      <p>TASE security number or ticker — price plus דמי ניהול (management fee) when available</p>
+      <p>TASE security number or ticker — price and management fee when available</p>
     </div>
 
     <div class="field">
@@ -2285,10 +2285,10 @@ function buildHtml(secret: string): string {
       let metaBlock = '';
       if (feeData) {
         const feeParts = [
-          '<strong>' + feeData.managementFee + '%</strong> דמי ניהול',
+          '<strong>' + feeData.managementFee + '%</strong> management fee',
         ];
-        if (feeData.trusteeFee != null) feeParts.push('נאמן ' + feeData.trusteeFee + '%');
-        if (feeData.variableFee != null) feeParts.push('משתנה ' + feeData.variableFee + '%');
+        if (feeData.trusteeFee != null) feeParts.push('trustee ' + feeData.trusteeFee + '%');
+        if (feeData.variableFee != null) feeParts.push('variable ' + feeData.variableFee + '%');
         if (feeData.managerName) feeParts.push(feeData.managerName);
         metaBlock +=
           '<div class="result-kv" style="margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted);">' +
@@ -2311,7 +2311,7 @@ function buildHtml(secret: string): string {
           trusteeSheet = \`
         <div class="sheets-box" style="margin-top:0.5rem;">
           <div class="sheets-box-header">
-            <span class="sheets-box-label">Trustee fee (דמי נאמן)</span>
+            <span class="sheets-box-label">Trustee fee</span>
             <button class="copy-btn" id="secTrusteeCopyBtn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               Copy
@@ -2323,7 +2323,7 @@ function buildHtml(secret: string): string {
         feeBox = \`
         <div class="sheets-box" style="margin-top:0.5rem;">
           <div class="sheets-box-header">
-            <span class="sheets-box-label">Management fee (דמי ניהול)</span>
+            <span class="sheets-box-label">Management fee</span>
             <button class="copy-btn" id="secFeeCopyBtn">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               Copy

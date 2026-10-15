@@ -4,9 +4,13 @@ import * as mgmtService from '../src/services/managementFee.js';
 import { fetchManagementFee, fetchTaseManagementFee } from '../src/services/managementFee.js';
 import type { ManagementFeeResult } from '../src/types/managementFee.js';
 
+const TASE_FUND_ID = '1234567';
+/** Listed on TASE via inday API — not in Maya funds endpoints. */
+const TASE_LISTED_FUND_ID = '9876543';
+
 const MOCK_FEE = {
-  id: '1150572',
-  name: 'MTF סל SP500',
+  id: TASE_FUND_ID,
+  name: 'Example TASE ETF',
   managementFee: 0.25,
   trusteeFee: 0.03,
   variableFee: 0.3,
@@ -22,6 +26,15 @@ function makeRequest(path: string, headers: Record<string, string> = {}): Reques
 
 const env = { SECRET_KEY: 'test-secret', ENVIRONMENT: 'test' };
 
+/** Jina request URLs embed `finance.yahoo.com/quote/...`; only match our direct HTML fetches. */
+function isDirectYahooQuotePage(u: string): boolean {
+  return /^https:\/\/finance\.yahoo\.com\/quote\/[^/]+\/?$/.test(u);
+}
+
+function isJinaYahooQuote(u: string): boolean {
+  return u.includes('r.jina.ai/https://finance.yahoo.com/quote/');
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -33,11 +46,11 @@ describe('fetchManagementFee', () => {
       if (u.includes('/funds/mutual/')) {
         return Promise.resolve(new Response('', { status: 404 }));
       }
-      if (u.includes('/funds/etf/1150572')) {
+      if (u.includes(`/funds/etf/${TASE_FUND_ID}`)) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              name: 'MTF סל SP500',
+              name: 'Example TASE ETF',
               managementFee: 0.25,
               trusteeFee: 0.03,
               variableFee: 0.3,
@@ -52,22 +65,48 @@ describe('fetchManagementFee', () => {
       return Promise.reject(new Error(`unexpected fetch: ${u}`));
     });
 
-    const fee = await fetchTaseManagementFee('1150572');
+    const fee = await fetchTaseManagementFee(TASE_FUND_ID);
     expect(fee.source).toBe('maya-etf');
     expect(fee.managementFee).toBe(0.25);
     expect(fee.trusteeFee).toBe(0.03);
   });
 
-  it('reads expense ratio from Yahoo via Jina for tickers', async () => {
+  it('reads expense ratio from Yahoo quote HTML for tickers', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
       const u = String(input);
-      if (u.includes('r.jina.ai') && u.includes('yahoo.com/quote/VUAA.L')) {
+      if (isDirectYahooQuotePage(u)) {
+        return Promise.resolve(
+          new Response(
+            '"longName":"SPDR S&P 500 ETF Trust",' +
+              '"annualReportExpenseRatio":{"raw":9.0E-4,"fmt":"0.09%"}',
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${u}`));
+    });
+
+    const fee = await fetchManagementFee('SPY');
+    expect(fee).toMatchObject({
+      id: 'SPY',
+      managementFee: 0.09,
+      source: 'yahoo-html',
+      fundType: 'ETF',
+    });
+  });
+
+  it('loads fees from TASE major_data when Maya has no fund record', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes('/funds/mutual/') || u.includes('/funds/etf/')) {
+        return Promise.resolve(new Response('{"message":"not found"}', { status: 404 }));
+      }
+      if (u.includes('r.jina.ai/https://market.tase.co.il/en/market_data/security/')) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
               data: {
-                title: 'Vanguard S&P 500 UCITS ETF (VUAA.L)',
-                content: 'Fund overview\nExpense Ratio (net) 0.07%\n',
+                content: 'Fund full name\nExample Foreign UCITS ETF\nManagement Fee (%)\n\n0.07\n',
               },
             }),
             { status: 200 },
@@ -77,65 +116,98 @@ describe('fetchManagementFee', () => {
       return Promise.reject(new Error(`unexpected fetch: ${u}`));
     });
 
-    const fee = await fetchManagementFee('VUAA.L');
+    const fee = await fetchTaseManagementFee(TASE_LISTED_FUND_ID);
     expect(fee).toMatchObject({
-      id: 'VUAA.L',
+      id: TASE_LISTED_FUND_ID,
       managementFee: 0.07,
+      name: 'Example Foreign UCITS ETF',
+      source: 'tase-major-jina',
+    });
+  });
+
+  it('falls back to Jina when Yahoo HTML has no expense ratio', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (isDirectYahooQuotePage(u)) {
+        return Promise.resolve(new Response('<html>no fee here</html>', { status: 200 }));
+      }
+      if (isJinaYahooQuote(u)) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                title: 'Vanguard S&P 500 ETF (VOO)',
+                content: 'Fund overview\nExpense Ratio (net) 0.03%\n',
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${u}`));
+    });
+
+    const fee = await fetchManagementFee('VOO');
+    expect(fee).toMatchObject({
+      id: 'VOO',
+      managementFee: 0.03,
       source: 'yahoo-jina',
-      fundType: 'ETF',
     });
   });
 
   it('falls back to justETF TER when Yahoo Jina has no expense ratio', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
       const u = String(input);
-      if (u.includes('r.jina.ai') && u.includes('yahoo.com/quote/FWRA.L')) {
+      if (isDirectYahooQuotePage(u)) {
+        return Promise.resolve(new Response('<html>no fee</html>', { status: 200 }));
+      }
+      if (isJinaYahooQuote(u)) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
               data: {
-                title: 'iShares FTSE All-World (FWRA.L)',
-                content: 'Overview IE00BK5BQT80 listed on LSE',
+                title: 'SPDR S&P 500 ETF (SPY)',
+                content: 'Overview IE00B3YCGJ38 listed on ARCA',
               },
             }),
             { status: 200 },
           ),
         );
       }
-      if (u.includes('r.jina.ai') && u.includes('justetf.com')) {
+      if (u.includes('r.jina.ai') && u.includes('justetf.com/en/etf-profile')) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
               data: {
-                content: 'FWRA total expense ratio **0.22 %** ongoing charges',
+                content: 'SPY total expense ratio **0.09 %** ongoing charges',
               },
             }),
             { status: 200 },
           ),
         );
       }
-      if (u.includes('finance.yahoo.com') && u.includes('/profile/')) {
+      if (u.includes('finance.yahoo.com/quote/') && u.includes('/profile/')) {
         return Promise.resolve(new Response('', { status: 404 }));
       }
       return Promise.reject(new Error(`unexpected fetch: ${u}`));
     });
 
-    const fee = await fetchManagementFee('FWRA.L');
-    expect(fee.managementFee).toBe(0.22);
+    const fee = await fetchManagementFee('SPY');
+    expect(fee.managementFee).toBe(0.09);
     expect(fee.source).toBe('justetf-jina');
   });
 });
 
 describe('GET /mgmt-fee', () => {
   it('returns 401 without secret', async () => {
-    const res = await app.fetch(makeRequest('/mgmt-fee?id=1150572'), env);
+    const res = await app.fetch(makeRequest(`/mgmt-fee?id=${TASE_FUND_ID}`), env);
     expect(res.status).toBe(401);
   });
 
   it('returns plain management fee percent for text format', async () => {
     vi.spyOn(mgmtService, 'fetchManagementFee').mockResolvedValue(MOCK_FEE);
     const res = await app.fetch(
-      makeRequest('/mgmt-fee?id=1150572&format=text&secret=test-secret'),
+      makeRequest(`/mgmt-fee?id=${TASE_FUND_ID}&format=text&secret=test-secret`),
       env,
     );
     expect(res.status).toBe(200);
@@ -145,7 +217,7 @@ describe('GET /mgmt-fee', () => {
   it('returns trustee fee with part=trustee', async () => {
     vi.spyOn(mgmtService, 'fetchManagementFee').mockResolvedValue(MOCK_FEE);
     const res = await app.fetch(
-      makeRequest('/mgmt-fee?id=1150572&format=text&part=trustee&secret=test-secret'),
+      makeRequest(`/mgmt-fee?id=${TASE_FUND_ID}&format=text&part=trustee&secret=test-secret`),
       env,
     );
     expect(await res.text()).toBe('0.03');
@@ -154,7 +226,7 @@ describe('GET /mgmt-fee', () => {
   it('returns JSON breakdown', async () => {
     vi.spyOn(mgmtService, 'fetchManagementFee').mockResolvedValue(MOCK_FEE);
     const res = await app.fetch(
-      makeRequest('/mgmt-fee?id=1150572&format=json&secret=test-secret'),
+      makeRequest(`/mgmt-fee?id=${TASE_FUND_ID}&format=json&secret=test-secret`),
       env,
     );
     expect(res.status).toBe(200);
@@ -170,7 +242,7 @@ describe('GET /mgmt-fee', () => {
       trusteeFee: null,
     });
     const res = await app.fetch(
-      makeRequest('/mgmt-fee?id=VUAA.L&format=text&part=trustee&secret=test-secret'),
+      makeRequest('/mgmt-fee?id=SPY&format=text&part=trustee&secret=test-secret'),
       env,
     );
     expect(res.status).toBe(404);
