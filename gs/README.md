@@ -188,13 +188,13 @@ Worker responses are **cached ~10 minutes** at the edge (`Cache-Control: max-age
 ### Management fee (דמי ניהול)
 
 ```
-=MGMT_FEE(1150572)     → 0.25  (דמי ניהול, percent per year)
-=TRUSTEE_FEE(1150572)  → 0.03  (דמי נאמן, TASE funds)
-=MGMT_FEE(1150572)+TRUSTEE_FEE(1150572)  → combined annual % (when both apply)
+=MGMT_FEE(1150572)     → 0.25  (0.25% per year — **percent points**, not a Sheets decimal)
+=TRUSTEE_FEE(1150572)  → 0.03  (0.03% per year)
 =MGMT_FEE("SPY")       → expense ratio for US ETF
+=TEXT(TOTAL_FEE_RATE(5140918), "0.00%")  → 0.07% total (mgmt + trustee), one API call
 ```
 
-TASE ids use Maya; tickers use Yahoo expense ratio. Display as percent: `=MGMT_FEE(1150572)/100` with `%` format, or append `&"%"` in a label cell.
+TASE ids use Maya; tickers use Yahoo expense ratio. Values are **percent points** (0.06 + 0.01 = 0.07 means 0.07% total). For `TEXT(..., "0.00%")` or **Percent** cell format, use `TOTAL_FEE_RATE(id)` or divide by 100: `=(MGMT_FEE(id)+TRUSTEE_FEE(id))/100`. To show the number with a literal percent sign: `=(MGMT_FEE(id)+TRUSTEE_FEE(id))&"%"`.
 
 ### Dividends (tickers)
 
