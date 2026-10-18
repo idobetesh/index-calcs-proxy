@@ -275,7 +275,7 @@ Returns the **Fear & Greed** sentiment index (0–100) for **US stocks** or **cr
 }
 ```
 
-Data from [sent_results](https://www.aaii.com/sentimentsurvey/sent_results) via Jina. `Cache-Control: public, max-age=86400`
+**Sources (in order):** [sent_results](https://www.aaii.com/sentimentsurvey/sent_results) via Jina (`source`: `aaii.com`); on failure, [sentiment.xls](https://www.aaii.com/files/surveys/sentiment.xls) via Jina (`aaii.com-sentiment.xls`). If both fail, serves last good Worker cache when available (`X-Aaii-Cache: stale`). Optional `JINA_API_KEY` secret reduces 429s. `Cache-Control: public, max-age=86400`
 
 ---
 
