@@ -2055,6 +2055,37 @@ function buildHtml(secret: string): string {
       stocks: 'https://www.cnn.com/markets/fear-and-greed',
       crypto: 'https://alternative.me/crypto/fear-and-greed-index/',
     };
+    const FNG_UI_CACHE_KEY = 'indexCalcsFngUi';
+    const FNG_UI_TTL_MS = 30 * 60 * 1000;
+
+    function readFngUiCache() {
+      try {
+        const raw = localStorage.getItem(FNG_UI_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.savedAt !== 'number') return null;
+        if (Date.now() - parsed.savedAt > FNG_UI_TTL_MS) return null;
+        return parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function writeFngUiCache(stocks, crypto) {
+      try {
+        localStorage.setItem(FNG_UI_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          stocks: stocks,
+          crypto: crypto,
+        }));
+      } catch (_) {}
+    }
+
+    function fetchFngJson(market) {
+      return fetch('/fear-greed?market=' + market + '&format=json&secret=' + SECRET)
+        .then(function(r) { return r.json(); });
+    }
+
     function formatFngRating(rating) {
       if (!rating) return '';
       return String(rating)
@@ -2291,6 +2322,10 @@ function buildHtml(secret: string): string {
       try {
         const res = await fetch('/aaii-sentiment?weeks=5&format=json&secret=' + SECRET);
         const data = await res.json();
+        if (!res.ok || data.error || !Array.isArray(data.weeks) || data.weeks.length === 0) {
+          panel.innerHTML = '<div class="market-loading">Unavailable</div>';
+          return;
+        }
         renderAaiiSentiment(data);
       } catch (err) {
         panel.innerHTML = '<div class="market-loading">Unavailable</div>';
@@ -2330,13 +2365,17 @@ function buildHtml(secret: string): string {
     }
 
     async function fetchTicker() {
+      const fngCached = readFngUiCache();
+      const fngStocksP = fngCached ? Promise.resolve(fngCached.stocks) : fetchFngJson('stocks');
+      const fngCryptoP = fngCached ? Promise.resolve(fngCached.crypto) : fetchFngJson('crypto');
+
       const [fiatRes, cryptoRes, marketRes, rateRes, fngStocksRes, fngCryptoRes] = await Promise.allSettled([
         fetch('https://api.frankfurter.app/latest?from=ILS&to=USD,EUR,GBP').then(r => r.json()),
         fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true').then(r => r.json()),
         fetch('/market?secret=' + SECRET).then(r => r.json()),
         fetch('/rate?secret=' + SECRET).then(r => r.json()),
-        fetch('/fear-greed?market=stocks&format=json&secret=' + SECRET).then(r => r.json()),
-        fetch('/fear-greed?market=crypto&format=json&secret=' + SECRET).then(r => r.json()),
+        fngStocksP,
+        fngCryptoP,
       ]);
 
       const rates = {};
@@ -2402,6 +2441,9 @@ function buildHtml(secret: string): string {
       }
       if (fngStocks || fngCrypto) {
         renderFearGreed(fngStocks, fngCrypto);
+        if (!fngCached) {
+          writeFngUiCache(fngStocks, fngCrypto);
+        }
       }
 
       if (Object.keys(rates).length) {
@@ -2409,6 +2451,13 @@ function buildHtml(secret: string): string {
         prevRates = rates;
       }
     }
+
+    (function hydrateFngUiFromCache() {
+      const hit = readFngUiCache();
+      if (hit && (hit.stocks || hit.crypto)) {
+        renderFearGreed(hit.stocks || null, hit.crypto || null);
+      }
+    })();
 
     function renderTicker(rates) {
       const items = TICKER_ITEMS.map(t => {

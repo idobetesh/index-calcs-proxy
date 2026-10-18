@@ -152,11 +152,15 @@ Cached in **Apps Script** (~30 min per market) and on the **Worker** edge (`max-
 | 3   | `neutral` %        |
 | 4   | `bearish` %        |
 
+Percent columns are **percent points** (e.g. `19.7` = 19.7%). Format B:D as **Number** (one decimal), not **Percent** (or you’ll see `1970%`).
+
 ```
 =AAII_SENTIMENT()       → 5 weeks (default)
 =AAII_SENTIMENT(10)
 =INDEX(AAII_SENTIMENT(), 1, 2)   → latest bullish
 ```
+
+**Charts:** Put headers in row 1, formula in **A2** only (`=SORT(AAII_SENTIMENT(5), 1, TRUE)` for oldest→newest on the X-axis). Select **only the spilled block** (e.g. A2:D6) as chart data — do not fill `INDEX(...)` down extra rows or the chart will show `#N/A`. Clear any `#N/A` cells below the spill.
 
 Cached ~24h in Apps Script and on the Worker edge.
 
