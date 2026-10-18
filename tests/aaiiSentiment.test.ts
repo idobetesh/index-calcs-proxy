@@ -3,6 +3,7 @@ import app from '../src/index.js';
 import {
   fetchAaiiSentiment,
   parseAaiiSentimentFromContent,
+  parseAaiiSentimentFromXlsContent,
   monthDayToWeekEndingIso,
 } from '../src/services/aaiiSentiment.js';
 import type { AaiiSentimentResult } from '../src/types/aaiiSentiment.js';
@@ -38,6 +39,19 @@ describe('parseAaiiSentimentFromContent', () => {
     expect(monthDayToWeekEndingIso('Dec', 30, new Date('2026-01-05T12:00:00.000Z'))).toBe(
       '2025-12-30',
     );
+  });
+});
+
+const XLS_SNIPPET =
+  '**10-8-26****40.25%****20.76%****38.98%**' + '**10-15-26****38.73%****19.65%****41.62%**';
+
+describe('parseAaiiSentimentFromXlsContent', () => {
+  it('returns newest weeks first from XLS markdown', () => {
+    const weeks = parseAaiiSentimentFromXlsContent(XLS_SNIPPET, 2);
+    expect(weeks).toHaveLength(2);
+    expect(weeks[0]?.weekEnding).toBe('2026-10-15');
+    expect(weeks[0]?.bullish).toBe(38.73);
+    expect(weeks[1]?.weekEnding).toBe('2026-10-08');
   });
 });
 
@@ -87,5 +101,23 @@ describe('fetchAaiiSentiment', () => {
     });
     const result = await fetchAaiiSentiment(2);
     expect(result.weeks).toHaveLength(2);
+  });
+
+  it('falls back to sentiment.xls when sent_results returns 429', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes('sent_results')) {
+        return Promise.resolve(new Response('rate limited', { status: 429 }));
+      }
+      if (u.includes('sentiment.xls')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { content: XLS_SNIPPET } }), { status: 200 }),
+        );
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${u}`));
+    });
+    const result = await fetchAaiiSentiment(1);
+    expect(result.source).toBe('aaii.com-sentiment.xls');
+    expect(result.weeks[0]?.bullish).toBe(38.73);
   });
 });
