@@ -141,6 +141,25 @@ Cached in **Apps Script** (~30 min per market) and on the **Worker** edge (`max-
 
 **US stocks:** score and rating from [CNN Fear & Greed](https://www.cnn.com/markets/fear-and-greed) when `source` is `cnn`. **Crypto:** [alternative.me](https://alternative.me/crypto/fear-and-greed-index/).
 
+### AAII sentiment
+
+[AAII survey](https://www.aaii.com/sentimentsurvey) — spills **N rows × 4 columns** (newest week first):
+
+| Col | Field              |
+| --- | ------------------ |
+| 1   | `weekEnding` (ISO) |
+| 2   | `bullish` %        |
+| 3   | `neutral` %        |
+| 4   | `bearish` %        |
+
+```
+=AAII_SENTIMENT()       → 5 weeks (default)
+=AAII_SENTIMENT(10)
+=INDEX(AAII_SENTIMENT(), 1, 2)   → latest bullish
+```
+
+Cached ~24h in Apps Script and on the Worker edge.
+
 ### Market Status
 
 ```
@@ -303,6 +322,7 @@ gs/
     dividend.gs      # DIV_AMOUNT(), DIV_DATE()
     rate.gs          # BOI_RATE(), PRIME_RATE()
     fear-greed.gs    # FEAR_GREED()
+    aaii-sentiment.gs # AAII_SENTIMENT()
     triggers.gs      # installTriggers() / uninstallTriggers() / refreshMarketData()
     appsscript.json  # Apps Script manifest (runtime, timezone, OAuth scopes)
   .clasp.json        # Script ID + rootDir — gitignored, create locally (see step 4)

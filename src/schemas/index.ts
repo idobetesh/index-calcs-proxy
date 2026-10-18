@@ -65,9 +65,20 @@ export const fearGreedQuerySchema = z.object({
   format: z.enum(['text', 'json'] as const).default('text'),
 });
 
+export const aaiiSentimentQuerySchema = z.object({
+  weeks: z.coerce
+    .number()
+    .int()
+    .min(1, 'Invalid "weeks". Must be between 1 and 52.')
+    .max(52, 'Invalid "weeks". Must be between 1 and 52.')
+    .default(5),
+  format: z.enum(['text', 'json'] as const).default('json'),
+});
+
 export type CalcQuery = z.infer<typeof calcQuerySchema>;
 export type EtfQuery = z.infer<typeof etfQuerySchema>;
 export type MarketStatusQuery = z.infer<typeof marketStatusQuerySchema>;
 export type StockQuery = z.infer<typeof stockQuerySchema>;
 export type StockSearchQuery = z.infer<typeof stockSearchQuerySchema>;
 export type FearGreedQuery = z.infer<typeof fearGreedQuerySchema>;
+export type AaiiSentimentQuery = z.infer<typeof aaiiSentimentQuerySchema>;

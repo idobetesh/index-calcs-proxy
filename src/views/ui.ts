@@ -883,6 +883,172 @@ function buildHtml(secret: string): string {
       .market-grid { grid-template-columns: 1fr; }
       .fng-grid { grid-template-columns: 1fr; }
     }
+
+    .ui-accordion {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 0.65rem;
+      background: var(--surface2);
+    }
+    .ui-accordion:last-of-type { margin-bottom: 0; }
+    .ui-accordion > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      user-select: none;
+    }
+    .ui-accordion > summary::-webkit-details-marker { display: none; }
+    .ui-accordion > summary::after {
+      content: '▸';
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+    .ui-accordion[open] > summary::after { transform: rotate(90deg); }
+    .ui-accordion > summary:hover { color: var(--accent); }
+    .ui-accordion-body {
+      padding: 0 0.85rem 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .ui-accordion-body > .ui-accordion-intro {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin: 0.65rem 0 0.75rem;
+      line-height: 1.45;
+    }
+    .ui-accordion-foot {
+      margin-top: 0.75rem;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    .aaii-panel { margin-top: 0.25rem; }
+    .aaii-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .aaii-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .aaii-swatch { width: 0.65rem; height: 0.65rem; border-radius: 2px; flex-shrink: 0; }
+    .aaii-swatch-bull { background: #059669; }
+    .aaii-swatch-neut { background: #64748b; }
+    .aaii-swatch-bear { background: #dc2626; }
+    .aaii-row {
+      display: grid;
+      grid-template-columns: 5.5rem 1fr;
+      gap: 0.65rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+    .aaii-date { font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .aaii-bar {
+      display: flex;
+      height: 1.65rem;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .aaii-seg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: #fff;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 2px;
+    }
+    .aaii-seg-bull { background: #059669; }
+    .aaii-seg-neut { background: #64748b; }
+    .aaii-seg-bear { background: #dc2626; }
+    .aaii-trend {
+      margin-bottom: 1rem;
+      padding: 0.55rem 0.35rem 0.25rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .aaii-trend-title {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+      padding: 0 0.25rem;
+    }
+    .aaii-trend-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem 0.75rem;
+      margin-bottom: 0.35rem;
+      padding: 0 0.15rem;
+    }
+    .aaii-trend-legend {
+      display: flex;
+      gap: 0.65rem;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+    .aaii-trend-svg {
+      display: block;
+      width: 100%;
+      height: 7.75rem;
+    }
+    .aaii-trend-axis { fill: var(--text-muted); font-size: 10px; }
+    .aaii-trend-grid { stroke: var(--border); stroke-width: 1; }
+    .aaii-trend-line {
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .aaii-trend-line-bull { stroke: #059669; }
+    .aaii-trend-line-bear { stroke: #dc2626; }
+    .aaii-trend-dot { stroke: var(--surface); stroke-width: 2; }
+    .aaii-trend-dot-bull { fill: #059669; }
+    .aaii-trend-dot-bear { fill: #dc2626; }
+    .aaii-trend-avg {
+      stroke-width: 1.5;
+      stroke-dasharray: 5 4;
+      opacity: 0.75;
+    }
+    .aaii-trend-avg-bull { stroke: #059669; }
+    .aaii-trend-avg-bear { stroke: #dc2626; }
+    .aaii-trend-avg-label {
+      font-size: 8px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .aaii-trend-avg-label-bull { fill: #059669; }
+    .aaii-trend-avg-label-bear { fill: #dc2626; }
+    .aaii-trend-avg-text {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
     .today-btn {
       font-size: 0.68rem;
       font-weight: 600;
@@ -1241,27 +1407,60 @@ function buildHtml(secret: string): string {
   </div>
 
   <div class="card">
-    <div class="card-header">
-      <div class="badge">🕐 Markets</div>
-      <h1>Market Hours</h1>
-      <p>Live open/closed status for major stock exchanges</p>
+    <div class="card-header" style="margin-bottom:1.1rem;">
+      <div class="badge">🌐 Markets &amp; sentiment</div>
+      <h1>Markets &amp; sentiment</h1>
+      <p>Exchange hours, Fear &amp; Greed, and AAII — expand any section below</p>
     </div>
-    <div id="marketStatusGrid" class="market-grid">
-      <div class="market-loading">Loading…</div>
-    </div>
-    <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:right;">Holiday-aware · Updates every 60s</p>
-  </div>
 
-  <div class="card">
-    <div class="card-header">
-      <div class="badge">🎭 Sentiment</div>
-      <h1>Fear &amp; Greed</h1>
-      <p>US equities (CNN) and crypto (alternative.me)</p>
-    </div>
-    <div id="fearGreedGrid" class="fng-grid">
-      <div class="market-loading" style="grid-column:1/-1;">Loading…</div>
-    </div>
-    <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:right;">Sheets: <code style="font-size:0.68rem;">=FEAR_GREED()</code> · <code style="font-size:0.68rem;">=FEAR_GREED("crypto")</code> · cached 30m</p>
+    <details class="ui-accordion">
+      <summary>Market hours</summary>
+      <div class="ui-accordion-body">
+        <p class="ui-accordion-intro">Live open/closed status for TASE, LSE, NYSE, and SIX (holiday-aware).</p>
+        <div id="marketStatusGrid" class="market-grid">
+          <div class="market-loading">Loading…</div>
+        </div>
+        <p class="ui-accordion-foot">Updates every 60s · local clocks tick every second</p>
+      </div>
+    </details>
+
+    <details class="ui-accordion" open>
+      <summary>Fear &amp; Greed</summary>
+      <div class="ui-accordion-body">
+        <p class="ui-accordion-intro">
+          <a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener noreferrer" class="market-link">US stocks (CNN) ↗</a>
+          ·
+          <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener noreferrer" class="market-link">Crypto (alternative.me) ↗</a>
+        </p>
+        <div id="fearGreedGrid" class="fng-grid">
+          <div class="fng-cell">
+            <div class="fng-cell-name"><a href="https://www.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener noreferrer" class="market-link">🇺🇸 US Stocks ↗</a></div>
+            <div class="market-loading" style="min-height:4.5rem;">Loading…</div>
+          </div>
+          <div class="fng-cell">
+            <div class="fng-cell-name"><a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener noreferrer" class="market-link">₿ Crypto ↗</a></div>
+            <div class="market-loading" style="min-height:4.5rem;">Loading…</div>
+          </div>
+        </div>
+        <p class="ui-accordion-foot">Sheets: <code style="font-size:0.68rem;">=FEAR_GREED()</code> · <code style="font-size:0.68rem;">=FEAR_GREED("crypto")</code> · cached 30m</p>
+      </div>
+    </details>
+
+    <details class="ui-accordion" open>
+      <summary>AAII investor sentiment</summary>
+      <div class="ui-accordion-body">
+        <p class="ui-accordion-intro">
+          Individual investor survey — last 5 weeks.
+          <a href="https://www.aaii.com/sentimentsurvey" target="_blank" rel="noopener noreferrer" class="market-link">AAII survey ↗</a>
+          ·
+          <a href="https://www.aaii.com/sentimentsurvey/sent_results" target="_blank" rel="noopener noreferrer" class="market-link">Full results ↗</a>
+        </p>
+        <div id="aaiiSentimentPanel" class="aaii-panel">
+          <div class="market-loading">Loading…</div>
+        </div>
+        <p class="ui-accordion-foot">Sheets: <code style="font-size:0.68rem;">=AAII_SENTIMENT()</code> · cached 24h · includes 5-week trend chart &amp; stacked bars</p>
+      </div>
+    </details>
   </div>
   </div>
   </div>
@@ -1856,7 +2055,6 @@ function buildHtml(secret: string): string {
       stocks: 'https://www.cnn.com/markets/fear-and-greed',
       crypto: 'https://alternative.me/crypto/fear-and-greed-index/',
     };
-
     function formatFngRating(rating) {
       if (!rating) return '';
       return String(rating)
@@ -1938,6 +2136,167 @@ function buildHtml(secret: string): string {
         '</svg>';
     }
 
+    function formatAaiiDisplayDate(iso) {
+      if (!iso) return '';
+      const p = String(iso).split('-');
+      if (p.length !== 3) return iso;
+      return p[1] + '/' + p[2] + '/' + p[0];
+    }
+
+    function formatAaiiShortDate(iso) {
+      if (!iso) return '';
+      const p = String(iso).split('-');
+      if (p.length !== 3) return iso;
+      return String(parseInt(p[1], 10)) + '/' + String(parseInt(p[2], 10));
+    }
+
+    function buildAaiiTrendSvg(weeks) {
+      const series = weeks.slice().reverse();
+      const bullValues = series.map(function(w) { return Number(w.bullish); });
+      const bearValues = series.map(function(w) { return Number(w.bearish); });
+      const avgBull = bullValues.reduce(function(a, b) { return a + b; }, 0) / bullValues.length;
+      const avgBear = bearValues.reduce(function(a, b) { return a + b; }, 0) / bearValues.length;
+      const allValues = bullValues.concat(bearValues).concat([avgBull, avgBear]);
+      const vbW = 640;
+      const vbH = 120;
+      const padL = 34;
+      const padR = 12;
+      const padT = 8;
+      const padB = 26;
+      const chartW = vbW - padL - padR;
+      const chartH = vbH - padT - padB;
+      let yMin = Math.min.apply(null, allValues);
+      let yMax = Math.max.apply(null, allValues);
+      yMin = Math.max(0, Math.floor(yMin / 5) * 5 - 5);
+      yMax = Math.min(100, Math.ceil(yMax / 5) * 5 + 5);
+      if (yMax - yMin < 15) {
+        yMin = Math.max(0, yMin - 5);
+        yMax = Math.min(100, yMax + 5);
+      }
+      const yRange = yMax - yMin || 1;
+      const n = series.length;
+
+      function yAt(v) {
+        return padT + chartH - ((v - yMin) / yRange) * chartH;
+      }
+      function xAt(i) {
+        return padL + (n === 1 ? chartW / 2 : (i / (n - 1)) * chartW);
+      }
+
+      function buildSeries(values, lineClass, dotClass, label) {
+        const pts = [];
+        for (let i = 0; i < n; i++) {
+          pts.push({ x: xAt(i), y: yAt(values[i]), v: values[i] });
+        }
+        const lineD = pts.map(function(p, i) {
+          return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+        }).join(' ');
+        let dots = '';
+        for (let j = 0; j < pts.length; j++) {
+          const p = pts[j];
+          const dateLabel = formatAaiiShortDate(series[j].weekEnding);
+          dots +=
+            '<circle class="aaii-trend-dot ' + dotClass + '" cx="' + p.x.toFixed(1) +
+            '" cy="' + p.y.toFixed(1) + '" r="4"><title>' + dateLabel + ': ' +
+            p.v.toFixed(1) + '% ' + label + '</title></circle>';
+        }
+        return '<path class="aaii-trend-line ' + lineClass + '" d="' + lineD + '"/>' + dots;
+      }
+
+      function buildAvgLine(avg, lineClass, labelClass, label) {
+        if (!Number.isFinite(avg)) return '';
+        const y = yAt(avg);
+        const x2 = padL + chartW;
+        const lx = x2 - 2;
+        return '<line class="aaii-trend-avg ' + lineClass + '" x1="' + padL + '" y1="' + y.toFixed(1) +
+          '" x2="' + x2 + '" y2="' + y.toFixed(1) + '"/>' +
+          '<text class="aaii-trend-avg-label ' + labelClass + '" x="' + lx + '" y="' + (y - 3) +
+          '" text-anchor="end">' + avg.toFixed(1) + '% avg</text>';
+      }
+
+      let grid = '';
+      for (let g = yMin; g <= yMax; g += 5) {
+        const gy = yAt(g);
+        grid +=
+          '<line class="aaii-trend-grid" x1="' + padL + '" y1="' + gy.toFixed(1) +
+          '" x2="' + (padL + chartW) + '" y2="' + gy.toFixed(1) + '" opacity="0.55"/>' +
+          '<text class="aaii-trend-axis" x="' + (padL - 5) + '" y="' + (gy + 3.5) +
+          '" text-anchor="end">' + g + '</text>';
+      }
+
+      let xLabels = '';
+      for (let i = 0; i < n; i++) {
+        const x = xAt(i);
+        xLabels +=
+          '<text class="aaii-trend-axis" x="' + x.toFixed(1) + '" y="' + (vbH - 7) +
+          '" text-anchor="middle">' + formatAaiiShortDate(series[i].weekEnding) + '</text>';
+      }
+
+      const avgSummary =
+        'Avg bull ' + avgBull.toFixed(1) + '% · bear ' + avgBear.toFixed(1) + '%';
+
+      const head =
+        '<div class="aaii-trend-head">' +
+        '<div class="aaii-trend-title">Sentiment trend · 5 weeks</div>' +
+        '<div class="aaii-trend-legend">' +
+        '<span class="aaii-legend-item"><span class="aaii-swatch aaii-swatch-bull"></span>Bullish</span>' +
+        '<span class="aaii-legend-item"><span class="aaii-swatch aaii-swatch-bear"></span>Bearish</span>' +
+        '<span class="aaii-trend-avg-text">' + avgSummary + '</span>' +
+        '</div></div>';
+
+      return '<div class="aaii-trend">' + head +
+        '<svg class="aaii-trend-svg" viewBox="0 0 ' + vbW + ' ' + vbH + '"' +
+        ' role="img" aria-label="AAII bullish and bearish trend">' +
+        grid +
+        buildAvgLine(avgBull, 'aaii-trend-avg-bull', 'aaii-trend-avg-label-bull', 'bullish') +
+        buildAvgLine(avgBear, 'aaii-trend-avg-bear', 'aaii-trend-avg-label-bear', 'bearish') +
+        buildSeries(bullValues, 'aaii-trend-line-bull', 'aaii-trend-dot-bull', 'bullish') +
+        buildSeries(bearValues, 'aaii-trend-line-bear', 'aaii-trend-dot-bear', 'bearish') +
+        xLabels +
+        '</svg></div>';
+    }
+
+    function renderAaiiSentiment(data) {
+      const panel = document.getElementById('aaiiSentimentPanel');
+      if (!panel) return;
+      if (!data || data.error || !Array.isArray(data.weeks) || data.weeks.length === 0) {
+        panel.innerHTML = '<div class="market-loading">Unavailable</div>';
+        return;
+      }
+      const legend =
+        '<div class="aaii-legend">' +
+        '<span class="aaii-legend-item"><span class="aaii-swatch aaii-swatch-bull"></span>Bullish</span>' +
+        '<span class="aaii-legend-item"><span class="aaii-swatch aaii-swatch-neut"></span>Neutral</span>' +
+        '<span class="aaii-legend-item"><span class="aaii-swatch aaii-swatch-bear"></span>Bearish</span>' +
+        '</div>';
+      const rows = data.weeks.map(function(w) {
+        const bull = Number(w.bullish);
+        const neut = Number(w.neutral);
+        const bear = Number(w.bearish);
+        const fmt = function(n) { return n.toFixed(1) + '%'; };
+        return '<div class="aaii-row">' +
+          '<div class="aaii-date">' + formatAaiiDisplayDate(w.weekEnding) + '</div>' +
+          '<div class="aaii-bar" title="Week ending ' + w.weekEnding + '">' +
+          '<span class="aaii-seg aaii-seg-bull" style="width:' + bull + '%">' + fmt(bull) + '</span>' +
+          '<span class="aaii-seg aaii-seg-neut" style="width:' + neut + '%">' + fmt(neut) + '</span>' +
+          '<span class="aaii-seg aaii-seg-bear" style="width:' + bear + '%">' + fmt(bear) + '</span>' +
+          '</div></div>';
+      }).join('');
+      panel.innerHTML = buildAaiiTrendSvg(data.weeks) + legend + rows;
+    }
+
+    async function fetchAaiiSentimentUi() {
+      const panel = document.getElementById('aaiiSentimentPanel');
+      if (!panel) return;
+      try {
+        const res = await fetch('/aaii-sentiment?weeks=5&format=json&secret=' + SECRET);
+        const data = await res.json();
+        renderAaiiSentiment(data);
+      } catch (err) {
+        panel.innerHTML = '<div class="market-loading">Unavailable</div>';
+      }
+    }
+
     function renderFearGreed(stocks, crypto) {
       const grid = document.getElementById('fearGreedGrid');
       if (!grid) return;
@@ -1957,7 +2316,17 @@ function buildHtml(secret: string): string {
           '<span class="fng-badge ' + cls + '" title="' + (c.data.timestamp || '') + src + '">' + rating + '</span>' +
           '</div>';
       }).join('');
-      grid.innerHTML = html || '<div class="market-loading" style="grid-column:1/-1;">Unavailable</div>';
+      if (html) {
+        grid.innerHTML = html;
+        return;
+      }
+      grid.innerHTML =
+        '<div class="fng-cell">' +
+        '<div class="fng-cell-name"><a href="' + FNG_URLS.stocks + '" target="_blank" rel="noopener noreferrer" class="market-link">🇺🇸 US Stocks ↗</a></div>' +
+        '<div class="market-loading" style="min-height:4rem;">Unavailable</div></div>' +
+        '<div class="fng-cell">' +
+        '<div class="fng-cell-name"><a href="' + FNG_URLS.crypto + '" target="_blank" rel="noopener noreferrer" class="market-link">₿ Crypto ↗</a></div>' +
+        '<div class="market-loading" style="min-height:4rem;">Unavailable</div></div>';
     }
 
     async function fetchTicker() {
@@ -2060,7 +2429,9 @@ function buildHtml(secret: string): string {
     }
 
     fetchTicker();
+    fetchAaiiSentimentUi();
     setInterval(fetchTicker, 60_000);
+    setInterval(fetchAaiiSentimentUi, 60 * 60 * 1000);
 
     // ── Allow Enter key to submit ──
     document.addEventListener('keydown', function(e) {
