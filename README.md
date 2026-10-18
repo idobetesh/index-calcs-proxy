@@ -253,6 +253,32 @@ Returns the **Fear & Greed** sentiment index (0–100) for **US stocks** or **cr
 
 ---
 
+### `GET /aaii-sentiment`
+
+[AAII Investor Sentiment Survey](https://www.aaii.com/sentimentsurvey) — weekly bullish / neutral / bearish percentages.
+
+**Query parameters**
+
+| Parameter | Required | Description                                      |
+| --------- | -------- | ------------------------------------------------ |
+| `weeks`   | No       | Recent weeks to return (default `5`, max 52)     |
+| `format`  | No       | `json` (default) or `text` (latest bullish only) |
+| `secret`  | Yes\*    | Auth secret (\*or `Authorization: Bearer`)       |
+
+**JSON response** (`format=json`):
+
+```json
+{
+  "source": "aaii.com",
+  "fetchedAt": "2026-10-18T08:00:00.000Z",
+  "weeks": [{ "weekEnding": "2026-10-14", "bullish": 38.7, "neutral": 19.7, "bearish": 41.6 }]
+}
+```
+
+Data from [sent_results](https://www.aaii.com/sentimentsurvey/sent_results) via Jina. `Cache-Control: public, max-age=86400`
+
+---
+
 ### `GET /market-status`
 
 Returns open/closed status for major stock exchanges. Holiday-aware via [Nager.Date](https://date.nager.at).
@@ -361,22 +387,23 @@ Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET
 
 ### Custom functions
 
-| Function       | Example                                          | Returns                                                                                                                                                                                            |
-| -------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CALC_AMOUNT`  | `=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")`    | Indexed amount (integer). HON first, then Worker.                                                                                                                                                  |
-| `CALC_PERCENT` | `=CALC_PERCENT(1, TEXT(G3,"YYYY-MM"), "cpi")`    | % change as decimal fraction (`TEXT(...,"0.00%")` for display).                                                                                                                                    |
-| `CALC_INDEX`   | `=CALC_INDEX(F3, TEXT(G3,"YYYY-MM"), "housing")` | Two lines: amount + fraction (`SPLIT` / `INDEX`).                                                                                                                                                  |
-| `HONINDEX`     | `=HONINDEX(G3, F3, "cpi")`                       | HON-only indexed amount (date, amount, type — note argument order).                                                                                                                                |
-| `SEC_PRICE`    | `=SEC_PRICE(1150572)` · `=SEC_PRICE("AAPL")`     | TASE price in **agorot** (integer) or ticker in native currency.                                                                                                                                   |
-| `MGMT_FEE`     | `=MGMT_FEE(1150572)` · `=MGMT_FEE("SPY")`        | דמי ניהול / expense ratio (**percent**, 0.16 = 0.16%).                                                                                                                                             |
-| `TRUSTEE_FEE`  | `=TRUSTEE_FEE(1150572)`                          | דמי נאמן (TASE funds; often no value for US tickers).                                                                                                                                              |
-| `DIV_AMOUNT`   | `=DIV_AMOUNT("AAPL")`                            | Next/last dividend per share (tickers only).                                                                                                                                                       |
-| `DIV_DATE`     | `=DIV_DATE("AAPL")`                              | Next dividend date (`YYYY-MM-DD`); may be estimated.                                                                                                                                               |
-| `BOI_RATE`     | `=BOI_RATE()`                                    | Bank of Israel rate (% number, e.g. `4`).                                                                                                                                                          |
-| `PRIME_RATE`   | `=PRIME_RATE()`                                  | Prime rate = BOI + 1.5%.                                                                                                                                                                           |
-| `FEAR_GREED`   | `=FEAR_GREED()` · `=FEAR_GREED("crypto")`        | Spills one row (formula cell = col 1): **1** `value` (0–100) · **2** `rating` · **3** `market` · **4** `source` · **5** `timestamp`. Default market: US stocks. Label: `=INDEX(FEAR_GREED(),1,2)`. |
-| `MARKET_OPEN`  | `=MARKET_OPEN("tase")`                           | `TRUE` / `FALSE` (tase, nyse, lse, six).                                                                                                                                                           |
-| `WORKER`       | `=WORKER("health")`                              | Raw Worker response (advanced; prefer typed helpers).                                                                                                                                              |
+| Function         | Example                                          | Returns                                                                                                                                                                                            |
+| ---------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CALC_AMOUNT`    | `=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")`    | Indexed amount (integer). HON first, then Worker.                                                                                                                                                  |
+| `CALC_PERCENT`   | `=CALC_PERCENT(1, TEXT(G3,"YYYY-MM"), "cpi")`    | % change as decimal fraction (`TEXT(...,"0.00%")` for display).                                                                                                                                    |
+| `CALC_INDEX`     | `=CALC_INDEX(F3, TEXT(G3,"YYYY-MM"), "housing")` | Two lines: amount + fraction (`SPLIT` / `INDEX`).                                                                                                                                                  |
+| `HONINDEX`       | `=HONINDEX(G3, F3, "cpi")`                       | HON-only indexed amount (date, amount, type — note argument order).                                                                                                                                |
+| `SEC_PRICE`      | `=SEC_PRICE(1150572)` · `=SEC_PRICE("AAPL")`     | TASE price in **agorot** (integer) or ticker in native currency.                                                                                                                                   |
+| `MGMT_FEE`       | `=MGMT_FEE(1150572)` · `=MGMT_FEE("SPY")`        | דמי ניהול / expense ratio (**percent**, 0.16 = 0.16%).                                                                                                                                             |
+| `TRUSTEE_FEE`    | `=TRUSTEE_FEE(1150572)`                          | דמי נאמן (TASE funds; often no value for US tickers).                                                                                                                                              |
+| `DIV_AMOUNT`     | `=DIV_AMOUNT("AAPL")`                            | Next/last dividend per share (tickers only).                                                                                                                                                       |
+| `DIV_DATE`       | `=DIV_DATE("AAPL")`                              | Next dividend date (`YYYY-MM-DD`); may be estimated.                                                                                                                                               |
+| `BOI_RATE`       | `=BOI_RATE()`                                    | Bank of Israel rate (% number, e.g. `4`).                                                                                                                                                          |
+| `PRIME_RATE`     | `=PRIME_RATE()`                                  | Prime rate = BOI + 1.5%.                                                                                                                                                                           |
+| `FEAR_GREED`     | `=FEAR_GREED()` · `=FEAR_GREED("crypto")`        | Spills one row (formula cell = col 1): **1** `value` (0–100) · **2** `rating` · **3** `market` · **4** `source` · **5** `timestamp`. Default market: US stocks. Label: `=INDEX(FEAR_GREED(),1,2)`. |
+| `AAII_SENTIMENT` | `=AAII_SENTIMENT()` · `=AAII_SENTIMENT(5)`       | Spills weeks (newest first): **1** `weekEnding` · **2** `bullish` · **3** `neutral` · **4** `bearish`. Latest bullish: `=INDEX(AAII_SENTIMENT(),1,2)`.                                             |
+| `MARKET_OPEN`    | `=MARKET_OPEN("tase")`                           | `TRUE` / `FALSE` (tase, nyse, lse, six).                                                                                                                                                           |
+| `WORKER`         | `=WORKER("health")`                              | Raw Worker response (advanced; prefer typed helpers).                                                                                                                                              |
 
 `CALC_*` / `HONINDEX` index types: `cpi`, `construction`, `housing`.
 

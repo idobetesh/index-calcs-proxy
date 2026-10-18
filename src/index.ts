@@ -12,6 +12,7 @@ import { rateController } from './controllers/rate.js';
 import { fearGreedController } from './controllers/fearGreed.js';
 import { managementFeeController } from './controllers/managementFee.js';
 import { dividendController } from './controllers/dividend.js';
+import { aaiiSentimentController } from './controllers/aaiiSentiment.js';
 import { uiController } from './views/ui.js';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -30,5 +31,6 @@ app.get('/rate', authMiddleware, rateController);
 app.get('/fear-greed', authMiddleware, fearGreedController);
 app.get('/mgmt-fee', authMiddleware, managementFeeController);
 app.get('/dividend', authMiddleware, dividendController);
+app.get('/aaii-sentiment', authMiddleware, aaiiSentimentController);
 
 export default app;
