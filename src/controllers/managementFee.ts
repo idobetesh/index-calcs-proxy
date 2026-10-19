@@ -32,7 +32,7 @@ export async function managementFeeController(c: Context<{ Bindings: Env }>): Pr
   if (cached) return cached;
 
   try {
-    const fee = await fetchManagementFee(id);
+    const fee = await fetchManagementFee(id, c.env.JINA_API_KEY);
     const cacheControl = `public, max-age=${CACHE_TTL_SECONDS}`;
 
     let textValue = String(fee.managementFee);

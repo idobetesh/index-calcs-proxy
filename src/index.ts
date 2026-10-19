@@ -13,6 +13,7 @@ import { fearGreedController } from './controllers/fearGreed.js';
 import { managementFeeController } from './controllers/managementFee.js';
 import { dividendController } from './controllers/dividend.js';
 import { aaiiSentimentController } from './controllers/aaiiSentiment.js';
+import { latestController } from './controllers/latest.js';
 import { uiController } from './views/ui.js';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -22,6 +23,7 @@ app.get('/', basicAuthMiddleware, uiController);
 app.get('/health', (c) => c.text('ok'));
 // ── Protected routes ──
 app.get('/calc', authMiddleware, calcController);
+app.get('/latest', authMiddleware, latestController);
 app.get('/price', authMiddleware, priceController);
 app.get('/stock', authMiddleware, stockController);
 app.get('/stock/search', authMiddleware, stockSearchController);

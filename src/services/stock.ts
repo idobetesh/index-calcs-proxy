@@ -1,4 +1,5 @@
 import { fetchWithTimeout } from '../utils/fetch.js';
+import { fetchJinaReaderPage, jinaReaderFetchOptions } from '../utils/jina.js';
 import { StockQuote, StockSearchResult, YahooChartMeta, YahooSearchQuote } from '../types/stock.js';
 
 export type { StockQuote, StockSearchResult };
@@ -48,17 +49,21 @@ async function fetchViaChart(ticker: string): Promise<StockQuote> {
  * Fallback when the direct API fails.
  * Price appears near the top as a standalone number (e.g. "150.25").
  */
-async function fetchViaJina(ticker: string): Promise<StockQuote> {
+async function fetchViaJina(ticker: string, jinaApiKey?: string): Promise<StockQuote> {
   const pageUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/`;
-  const res = await fetchWithTimeout(
-    `https://r.jina.ai/${pageUrl}`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-    TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error(`[jina-yf] HTTP ${res.status}`);
-
-  const json = (await res.json()) as { data?: { content?: string; title?: string } };
-  const content = json?.data?.content ?? '';
+  let content: string;
+  let title: string | undefined;
+  try {
+    ({ content, title } = await fetchJinaReaderPage(
+      pageUrl,
+      jinaReaderFetchOptions(jinaApiKey, TIMEOUT_MS),
+    ));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      msg.startsWith('[jina]') ? msg.replace('[jina]', '[jina-yf]') : `[jina-yf] ${msg}`,
+    );
+  }
 
   // Yahoo Finance quote pages rendered by Jina show the price as a bold number
   // near the top, e.g. "**150.25**" or as a plain decimal like "150.25" on its own line.
@@ -69,19 +74,18 @@ async function fetchViaJina(ticker: string): Promise<StockQuote> {
   }
 
   // Extract a name from the page title ("Apple Inc. (AAPL) Stock Price…")
-  const title = json?.data?.title ?? '';
-  const nameMatch = title.match(/^(.+?)\s*\(/);
+  const nameMatch = (title ?? '').match(/^(.+?)\s*\(/);
   const name = nameMatch?.[1]?.trim() ?? ticker;
 
   return { ticker, name, price, currency: '', exchange: '', date: '' };
 }
 
-export async function fetchStockQuote(ticker: string): Promise<StockQuote> {
+export async function fetchStockQuote(ticker: string, jinaApiKey?: string): Promise<StockQuote> {
   try {
     return await fetchViaChart(ticker);
   } catch (chartErr) {
     try {
-      return await fetchViaJina(ticker);
+      return await fetchViaJina(ticker, jinaApiKey);
     } catch (jinaErr) {
       const msg1 = chartErr instanceof Error ? chartErr.message : String(chartErr);
       const msg2 = jinaErr instanceof Error ? jinaErr.message : String(jinaErr);

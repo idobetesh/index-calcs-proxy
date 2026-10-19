@@ -26,7 +26,7 @@ export async function fearGreedController(c: Context<{ Bindings: Env }>): Promis
   if (cached) return cached;
 
   try {
-    const result = await fetchFearGreed(market);
+    const result = await fetchFearGreed(market, c.env.JINA_API_KEY);
     const cacheControl = `public, max-age=${CACHE_TTL_SECONDS}`;
 
     const response =

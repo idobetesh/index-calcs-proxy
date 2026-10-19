@@ -30,7 +30,7 @@ export async function dividendController(c: Context<{ Bindings: Env }>): Promise
   if (cached) return cached;
 
   try {
-    const div = await fetchDividend(id);
+    const div = await fetchDividend(id, c.env.JINA_API_KEY);
     const cacheControl = `public, max-age=${CACHE_TTL_SECONDS}`;
 
     const response =

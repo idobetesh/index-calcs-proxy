@@ -1,5 +1,6 @@
 import { TaseQuote, MayaFundResponse, TaseInDayResponse } from '../types/tase.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
+import { fetchJinaReaderPage, jinaReaderFetchOptions } from '../utils/jina.js';
 
 export type { TaseQuote };
 
@@ -164,15 +165,18 @@ const JINA_SOURCES: JinaSource[] = [
 /**
  * Fetches a page via Jina Reader and extracts the price using the source's parser.
  */
-async function fetchViaJina(id: string, source: JinaSource): Promise<TaseQuote> {
-  const res = await fetchWithTimeout(
-    `https://r.jina.ai/${source.url(id)}`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-    TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error(`[${source.name}] HTTP ${res.status}`);
-  const json: unknown = await res.json();
-  const content: string = (json as { data?: { content?: string } }).data?.content ?? '';
+async function fetchViaJina(
+  id: string,
+  source: JinaSource,
+  jinaApiKey?: string,
+): Promise<TaseQuote> {
+  const { content } = await fetchJinaReaderPage(
+    source.url(id),
+    jinaReaderFetchOptions(jinaApiKey, TIMEOUT_MS),
+  ).catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(msg.replace('[jina]', `[${source.name}]`));
+  });
   const price = source.parse(content);
   if (price == null || isNaN(price) || price <= 0) {
     throw new Error(`[${source.name}] Could not parse price from rendered content`);
@@ -187,7 +191,7 @@ async function fetchViaJina(id: string, source: JinaSource): Promise<TaseQuote> 
  * via Promise.any() — the first to succeed wins.
  * Throws only if everything fails.
  */
-export async function fetchTaseQuote(id: string): Promise<TaseQuote> {
+export async function fetchTaseQuote(id: string, jinaApiKey?: string): Promise<TaseQuote> {
   const directSources: Array<() => Promise<TaseQuote>> = [
     (): Promise<TaseQuote> => fetchMayaMutual(id),
     (): Promise<TaseQuote> => fetchMayaEtf(id),
@@ -205,7 +209,7 @@ export async function fetchTaseQuote(id: string): Promise<TaseQuote> {
 
   // All direct sources failed — race Jina sources in parallel
   try {
-    return await Promise.any(JINA_SOURCES.map((s) => fetchViaJina(id, s)));
+    return await Promise.any(JINA_SOURCES.map((s) => fetchViaJina(id, s, jinaApiKey)));
   } catch (err) {
     const jinaErrors =
       err instanceof AggregateError

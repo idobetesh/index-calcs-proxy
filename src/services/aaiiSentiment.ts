@@ -1,5 +1,6 @@
 import { AaiiSentimentResult, AaiiSentimentWeek } from '../types/aaiiSentiment.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
+import { jinaReaderHeaders, jinaReaderUrl } from '../utils/jina.js';
 
 const JINA_TIMEOUT_MS = 25_000;
 const JINA_RETRY_DELAY_MS = 1_500;
@@ -127,29 +128,19 @@ export function parseAaiiSentimentFromXlsContent(
   return rows.slice(-limit).reverse();
 }
 
-function jinaHeaders(jinaApiKey?: string): HeadersInit {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'User-Agent': 'curl/8.0',
-  };
-  const key = jinaApiKey?.trim();
-  if (key) headers.Authorization = `Bearer ${key}`;
-  return headers;
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function fetchJinaPageContent(pageUrl: string, jinaApiKey?: string): Promise<string> {
-  const jinaUrl = `https://r.jina.ai/${pageUrl}`;
+  const jinaUrl = jinaReaderUrl(pageUrl);
   let lastErr: Error | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) await sleep(JINA_RETRY_DELAY_MS);
     try {
       const res = await fetchWithTimeout(
         jinaUrl,
-        { headers: jinaHeaders(jinaApiKey) },
+        { headers: jinaReaderHeaders(jinaApiKey) },
         JINA_TIMEOUT_MS,
       );
       if (res.status === 429) {

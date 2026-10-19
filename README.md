@@ -275,7 +275,7 @@ Returns the **Fear & Greed** sentiment index (0–100) for **US stocks** or **cr
 }
 ```
 
-**Sources (in order):** [sent_results](https://www.aaii.com/sentimentsurvey/sent_results) via Jina (`source`: `aaii.com`); on failure, [sentiment.xls](https://www.aaii.com/files/surveys/sentiment.xls) via Jina (`aaii.com-sentiment.xls`). If both fail, serves last good Worker cache when available (`X-Aaii-Cache: stale`). Optional `JINA_API_KEY` secret reduces 429s. `Cache-Control: public, max-age=86400`
+**Sources (in order):** [sent_results](https://www.aaii.com/sentimentsurvey/sent_results) via Jina (`source`: `aaii.com`); on failure, [sentiment.xls](https://www.aaii.com/files/surveys/sentiment.xls) via Jina (`aaii.com-sentiment.xls`). If both fail, serves last good Worker cache when available (`X-Aaii-Cache: stale`). Optional Worker secret `JINA_API_KEY` (Bearer on all Jina Reader fallbacks) reduces 429s. `Cache-Control: public, max-age=86400`
 
 ---
 
@@ -371,6 +371,26 @@ Returns live prices for metals, volatility, and equity indices (server-side prox
 
 ---
 
+### `GET /latest`
+
+Latest published CBS period (`YYYY-MM`) for each index type. Used by the calculator UI for period hints.
+
+**Auth:** same as other routes (`?secret=` or Bearer).
+
+**Response (JSON)**
+
+```json
+{
+  "cpi": "2025-08",
+  "construction": "2025-07",
+  "housing": "2025-06"
+}
+```
+
+`Cache-Control: public, max-age=3600`
+
+---
+
 ### `GET /health`
 
 Health check. No auth required.
@@ -420,7 +440,7 @@ Full setup and troubleshooting: **[gs/README.md](gs/README.md)**.
 npm install
 
 # Create local secrets file (git-ignored)
-echo "SECRET_KEY=dev-secret" > .dev.vars
+printf 'SECRET_KEY=dev-secret\n# Optional — Jina Reader Bearer token (mgmt-fee, price, dividend, fear-greed, AAII fallbacks)\n# JINA_API_KEY=\n' > .dev.vars
 
 # Start local dev server
 npm run dev

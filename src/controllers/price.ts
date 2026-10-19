@@ -41,7 +41,7 @@ export async function priceController(c: Context<{ Bindings: Env }>): Promise<Re
     let quote: Record<string, unknown>;
 
     if (isTase) {
-      const etf = await fetchTaseQuote(id);
+      const etf = await fetchTaseQuote(id, c.env.JINA_API_KEY);
       quote = {
         id: etf.id,
         name: etf.name,
@@ -51,7 +51,7 @@ export async function priceController(c: Context<{ Bindings: Env }>): Promise<Re
         source: etf.source,
       };
     } else {
-      const stock = await fetchStockQuote(id.toUpperCase());
+      const stock = await fetchStockQuote(id.toUpperCase(), c.env.JINA_API_KEY);
       quote = {
         id: stock.ticker,
         name: stock.name,
