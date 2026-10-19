@@ -1,10 +1,11 @@
 import { Context } from 'hono';
 import { fetchBoiRate } from '../services/boi.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 export async function rateController(c: Context): Promise<Response> {
   try {
     const result = await fetchBoiRate();
-    const format = c.req.query('format') === 'text' ? 'text' : 'json';
+    const format = resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')) ?? 'json';
 
     if (format === 'text') {
       return new Response(result.rate.toFixed(2), {

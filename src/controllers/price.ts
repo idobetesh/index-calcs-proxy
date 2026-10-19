@@ -3,6 +3,7 @@ import { Env } from '../types/env.js';
 import { fetchTaseQuote } from '../services/tase.js';
 import { fetchStockQuote } from '../services/stock.js';
 import { etfQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 /** Prices are cached at Cloudflare's edge for this many seconds. */
 const CACHE_TTL_SECONDS = 10 * 60; // 10 minutes
@@ -20,7 +21,7 @@ const CACHE_TTL_SECONDS = 10 * 60; // 10 minutes
 export async function priceController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = etfQuerySchema.safeParse({
     id: c.req.query('id'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {

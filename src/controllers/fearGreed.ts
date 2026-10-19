@@ -2,6 +2,7 @@ import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { fetchFearGreed } from '../services/fearGreed.js';
 import { fearGreedQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 const CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
 
@@ -11,7 +12,7 @@ const CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
 export async function fearGreedController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = fearGreedQuerySchema.safeParse({
     market: c.req.query('market'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {

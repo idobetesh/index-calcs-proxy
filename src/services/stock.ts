@@ -4,7 +4,9 @@ import { StockQuote, StockSearchResult, YahooChartMeta, YahooSearchQuote } from 
 
 export type { StockQuote, StockSearchResult };
 
-const TIMEOUT_MS = 8_000;
+const CHART_TIMEOUT_MS = 8_000;
+/** Jina-rendered Yahoo pages are slow; only used when chart API fails for non-404 reasons. */
+const JINA_TIMEOUT_MS = 20_000;
 
 const YF_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -20,7 +22,7 @@ const YF_HEADERS = {
  */
 async function fetchViaChart(ticker: string): Promise<StockQuote> {
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-  const res = await fetchWithTimeout(url, { headers: YF_HEADERS }, TIMEOUT_MS);
+  const res = await fetchWithTimeout(url, { headers: YF_HEADERS }, CHART_TIMEOUT_MS);
   if (!res.ok) throw new Error(`[yf-chart] HTTP ${res.status}`);
 
   const json = (await res.json()) as { chart?: { result?: Array<{ meta?: YahooChartMeta }> } };
@@ -56,7 +58,7 @@ async function fetchViaJina(ticker: string, jinaApiKey?: string): Promise<StockQ
   try {
     ({ content, title } = await fetchJinaReaderPage(
       pageUrl,
-      jinaReaderFetchOptions(jinaApiKey, TIMEOUT_MS),
+      jinaReaderFetchOptions(jinaApiKey, JINA_TIMEOUT_MS),
     ));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -80,27 +82,39 @@ async function fetchViaJina(ticker: string, jinaApiKey?: string): Promise<StockQ
   return { ticker, name, price, currency: '', exchange: '', date: '' };
 }
 
+function isChartNotFoundError(message: string): boolean {
+  return (
+    message.includes('404') || message.includes('not found') || message.includes('No price for')
+  );
+}
+
 export async function fetchStockQuote(ticker: string, jinaApiKey?: string): Promise<StockQuote> {
   try {
     return await fetchViaChart(ticker);
   } catch (chartErr) {
+    const chartMsg = chartErr instanceof Error ? chartErr.message : String(chartErr);
+    if (isChartNotFoundError(chartMsg)) {
+      throw new Error(`Ticker "${ticker}" not found. Please check the symbol.`);
+    }
     try {
       return await fetchViaJina(ticker, jinaApiKey);
     } catch (jinaErr) {
-      const msg1 = chartErr instanceof Error ? chartErr.message : String(chartErr);
-      const msg2 = jinaErr instanceof Error ? jinaErr.message : String(jinaErr);
-      const notFound = [msg1, msg2].every(
-        (e) => e.includes('404') || e.includes('not found') || e.includes('parse price'),
-      );
-      if (notFound) throw new Error(`Ticker "${ticker}" not found. Please check the symbol.`);
-      throw new Error(`All sources failed for "${ticker}":\n${msg1}\n${msg2}`);
+      const jinaMsg = jinaErr instanceof Error ? jinaErr.message : String(jinaErr);
+      if (
+        isChartNotFoundError(jinaMsg) ||
+        jinaMsg.includes('parse price') ||
+        jinaMsg.includes('Could not parse price')
+      ) {
+        throw new Error(`Ticker "${ticker}" not found. Please check the symbol.`);
+      }
+      throw new Error(`All sources failed for "${ticker}":\n${chartMsg}\n${jinaMsg}`);
     }
   }
 }
 
 export async function searchStocks(query: string): Promise<StockSearchResult[]> {
   const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&listsCount=0`;
-  const res = await fetchWithTimeout(url, { headers: YF_HEADERS }, TIMEOUT_MS);
+  const res = await fetchWithTimeout(url, { headers: YF_HEADERS }, CHART_TIMEOUT_MS);
   if (!res.ok) throw new Error(`Yahoo Finance search returned HTTP ${res.status}`);
 
   const json = (await res.json()) as { quotes?: YahooSearchQuote[] };

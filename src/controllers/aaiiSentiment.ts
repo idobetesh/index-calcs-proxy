@@ -2,6 +2,7 @@ import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { fetchAaiiSentiment } from '../services/aaiiSentiment.js';
 import { aaiiSentimentQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 import type { AaiiSentimentResult } from '../types/aaiiSentiment.js';
 
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
@@ -77,7 +78,7 @@ async function refreshAaiiAndCache(
 export async function aaiiSentimentController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = aaiiSentimentQuerySchema.safeParse({
     weeks: c.req.query('weeks'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {

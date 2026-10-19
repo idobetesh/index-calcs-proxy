@@ -34,6 +34,10 @@ Given an original amount and a starting month, the worker calls the CBS official
 
 ## API
 
+**Auth:** `Authorization: Bearer <SECRET_KEY>`, `?secret=` (legacy), or HttpOnly session cookie (calculator UI after `/?key=`).
+
+**JSON vs text:** Most routes accept `format=text|json`. The calculator UI sends `Accept: application/json` instead of `format=json` in the URL. Google Sheets helpers keep `format=` in the `WORKER("…")` path.
+
 ### `GET /calc`
 
 Returns an inflation-adjusted amount.
@@ -429,7 +433,7 @@ Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET
 
 Full setup and troubleshooting: **[gs/README.md](gs/README.md)**.
 
-`IMPORTDATA` with `?secret=` still works but is optional; Apps Script is preferred (no URL secret in the sheet, better errors).
+Apps Script uses **`Authorization: Bearer`** via `WORKER()` (see [gs/README.md](gs/README.md)). `IMPORTDATA` with `?secret=` still works but is legacy; prefer bound script helpers.
 
 ---
 
@@ -446,12 +450,11 @@ printf 'SECRET_KEY=dev-secret\n# Optional — Jina Reader Bearer token (mgmt-fee
 npm run dev
 # → http://localhost:8787
 
-# Open calculator UI (cookie set on first visit, no key needed after)
+# Open calculator UI once with ?key= — HttpOnly session cookie; API calls need no secret in the page
 open "http://localhost:8787/?key=dev-secret"
 
-# Test the API
-curl "http://localhost:8787/calc?amount=1598000&from=2024-02&index=construction&secret=dev-secret"
-curl "http://localhost:8787/calc?amount=1598000&from=2024-02&index=construction&format=json&secret=dev-secret"
+# Test the API (Bearer preferred; ?secret= still supported)
+curl -H "Authorization: Bearer dev-secret" "http://localhost:8787/calc?amount=1598000&from=2024-02&index=construction&format=json"
 
 # Run checks
 npm run typecheck

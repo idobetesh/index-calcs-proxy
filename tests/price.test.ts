@@ -42,6 +42,18 @@ describe('GET /price - auth', () => {
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
   });
+
+  it('returns JSON when Accept is application/json without format query', async () => {
+    vi.spyOn(taseService, 'fetchTaseQuote').mockResolvedValue(MOCK_QUOTE);
+    const req = makeRequest('/price?id=5119466&secret=test-secret', {
+      Accept: 'application/json',
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const body = await res.json();
+    expect(body).toHaveProperty('price', MOCK_QUOTE.price);
+  });
 });
 
 // ── Validation ────────────────────────────────────────────────────────────────

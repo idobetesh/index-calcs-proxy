@@ -2,6 +2,7 @@ import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { fetchStockQuote } from '../services/stock.js';
 import { stockQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 const CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
 
@@ -15,7 +16,7 @@ const CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
 export async function stockController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = stockQuerySchema.safeParse({
     ticker: c.req.query('ticker'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {

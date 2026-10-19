@@ -65,10 +65,11 @@ Then create `.clasp.json` in this folder (it's gitignored for the `scriptId` —
 
 Two values live on the **Cloudflare Worker** (not in the sheet). Apps Script only needs `SECRET_KEY`.
 
-| Secret         | Required | Where to set                                                                                                                                                                                             |
-| -------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SECRET_KEY`   | Yes      | `wrangler secret put SECRET_KEY` (production) · `.dev.vars` (local `npm run dev`) · Apps Script **Script properties** (same string)                                                                      |
-| `JINA_API_KEY` | No       | `wrangler secret put JINA_API_KEY` · optional line in `.dev.vars` — Bearer token for [Jina Reader](https://jina.ai); lowers 429 rate limits on price, mgmt-fee, dividend, fear-greed, and AAII fallbacks |
+| Secret / property | Required | Where to set                                                                                                                                                                                             |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SECRET_KEY`      | Yes      | `wrangler secret put SECRET_KEY` (production) · `.dev.vars` (local `npm run dev`) · Apps Script **Script properties** (same string)                                                                      |
+| `WORKER_URL`      | No       | Apps Script **Script properties** — Worker origin only, e.g. `https://index-calcs-proxy.idobetesh.workers.dev` (no trailing slash). Default in code if unset. Use for staging or a fork.                 |
+| `JINA_API_KEY`    | No       | `wrangler secret put JINA_API_KEY` · optional line in `.dev.vars` — Bearer token for [Jina Reader](https://jina.ai); lowers 429 rate limits on price, mgmt-fee, dividend, fear-greed, and AAII fallbacks |
 
 **Apps Script — `SECRET_KEY` only**
 
@@ -93,7 +94,9 @@ const secret = PropertiesService.getScriptProperties().getProperty('SECRET_KEY')
 curl -sS -H "Authorization: Bearer YOUR_JINA_KEY" "https://r.jina.ai/https://example.com" | head
 ```
 
-Worker routes authenticate with `SECRET_KEY` in `?secret=` or `Authorization: Bearer` — never put the Jina key in sheet formulas or the UI URL.
+**Worker auth from Sheets:** `WORKER()` sends `Authorization: Bearer <SECRET_KEY>` (secret stays in Script properties, not in the request URL). The Worker still accepts `?secret=` for legacy `IMPORTDATA` URLs only.
+
+Never put the Jina key in sheet formulas or the UI URL.
 
 ---
 

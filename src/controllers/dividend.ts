@@ -2,6 +2,7 @@ import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { fetchDividend } from '../services/dividend.js';
 import { etfQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 const CACHE_TTL_SECONDS = 6 * 60 * 60;
 
@@ -13,7 +14,7 @@ const CACHE_TTL_SECONDS = 6 * 60 * 60;
 export async function dividendController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = etfQuerySchema.safeParse({
     id: c.req.query('id'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {
@@ -50,7 +51,8 @@ export async function dividendController(c: Context<{ Bindings: Env }>): Promise
     const status =
       message.includes('not supported') ||
       message.includes('not found') ||
-      message.includes('No dividend')
+      message.includes('No dividend') ||
+      message.includes('HTTP 404')
         ? 404
         : 502;
     return c.json({ error: message }, status);
