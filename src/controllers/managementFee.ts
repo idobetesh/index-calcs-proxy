@@ -2,6 +2,7 @@ import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { fetchManagementFee } from '../services/managementFee.js';
 import { etfQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 const CACHE_TTL_SECONDS = 24 * 60 * 60; // fees change rarely
 
@@ -14,7 +15,7 @@ const CACHE_TTL_SECONDS = 24 * 60 * 60; // fees change rarely
 export async function managementFeeController(c: Context<{ Bindings: Env }>): Promise<Response> {
   const parsed = etfQuerySchema.safeParse({
     id: c.req.query('id'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {

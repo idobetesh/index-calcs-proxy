@@ -1,5 +1,7 @@
+import { getCookie } from 'hono/cookie';
 import { Context, Next } from 'hono';
 import { Env } from '../types/env.js';
+import { SESSION_COOKIE_NAME, verifySessionToken } from '../utils/session.js';
 
 /**
  * Timing-safe string comparison using HMAC via crypto.subtle.
@@ -29,9 +31,10 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 }
 
 /**
- * Auth middleware. Accepts secret via:
- * 1. ?secret= query param (for Google Sheets IMPORTDATA)
- * 2. Authorization: Bearer <secret> header (for curl/Postman)
+ * Auth middleware. Accepts:
+ * 1. ?secret= query param (legacy IMPORTDATA / bookmarks)
+ * 2. Authorization: Bearer <SECRET_KEY> (Apps Script, curl)
+ * 3. HttpOnly session cookie (calculator UI after ?key= login)
  */
 export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next): Promise<Response> {
   const expectedSecret = c.env.SECRET_KEY;
@@ -45,16 +48,20 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next):
   const bearerSecret = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
   const candidate = querySecret || bearerSecret;
-
-  if (!candidate) {
-    return c.json({ error: 'Unauthorized' }, 401);
+  if (candidate) {
+    const valid = await timingSafeEqual(candidate, expectedSecret);
+    if (!valid) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    await next();
+    return c.res;
   }
 
-  const valid = await timingSafeEqual(candidate, expectedSecret);
-  if (!valid) {
-    return c.json({ error: 'Unauthorized' }, 401);
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  if (sessionToken && (await verifySessionToken(expectedSecret, sessionToken))) {
+    await next();
+    return c.res;
   }
 
-  await next();
-  return c.res;
+  return c.json({ error: 'Unauthorized' }, 401);
 }

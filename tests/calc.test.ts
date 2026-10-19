@@ -111,6 +111,18 @@ describe('GET /calc - text response', () => {
 });
 
 describe('GET /calc - JSON response', () => {
+  it('returns JSON when Accept is application/json without format query', async () => {
+    vi.spyOn(cbs, 'fetchIndexData').mockResolvedValue(MOCK_ENTRIES);
+    const req = makeRequest('/calc?amount=100000&from=2024-01&to=2024-03&secret=test-secret', {
+      Accept: 'application/json',
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const body = await res.json();
+    expect(body).toHaveProperty('indexedAmount', 103022);
+  });
+
   it('returns full CalcResult object when format=json', async () => {
     vi.spyOn(cbs, 'fetchIndexData').mockResolvedValue(MOCK_ENTRIES);
     const req = makeRequest(
@@ -136,5 +148,7 @@ describe('GET /', () => {
     expect(res.headers.get('content-type')).toContain('text/html');
     const html = await res.text();
     expect(html).toContain('Index Calculator');
+    expect(html).not.toContain('test-secret');
+    expect(res.headers.get('set-cookie')).toContain('icp_session=');
   });
 });

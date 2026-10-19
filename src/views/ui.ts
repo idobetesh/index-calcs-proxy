@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { Env } from '../types/env.js';
 
-function buildHtml(secret: string): string {
+function buildHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -519,6 +519,22 @@ function buildHtml(secret: string): string {
     }
     .result.error .result-hero-label { color: var(--red); }
     .result.error .result-hero-value { font-size: 1rem; color: var(--red); font-weight: 600; }
+
+    .sec-async-loading {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      padding: 0.5rem 0 0.65rem;
+    }
+    .sec-slot-spinner {
+      width: 1rem;
+      height: 1rem;
+      border-width: 2px;
+      flex-shrink: 0;
+    }
+    .sec-inline-loader { color: var(--text-muted); font-size: 0.95rem; font-weight: 500; }
 
     .result-body {
       padding: 1.25rem 1.5rem;
@@ -1402,7 +1418,12 @@ function buildHtml(secret: string): string {
         <div class="result-hero-value" id="secResultMain"></div>
         <div class="result-hero-sub" id="secResultSub"></div>
       </div>
-      <div class="result-body" id="secResultBody"></div>
+      <div class="result-body" id="secResultBody">
+        <div id="secMetaKv"></div>
+        <div id="secPriceSlot"></div>
+        <div id="secFeeSlot"></div>
+        <div id="secDivSlot"></div>
+      </div>
     </div>
   </div>
 
@@ -1466,7 +1487,11 @@ function buildHtml(secret: string): string {
   </div>
 
   <script>
-    const SECRET = ${JSON.stringify(secret)};
+    const apiFetch = (url, opts) => fetch(url, { credentials: 'same-origin', ...opts });
+    const apiJson = (url, opts) =>
+      apiFetch(url, { headers: { Accept: 'application/json' }, ...opts });
+
+    let secLookupGen = 0;
 
     // ── Theme ──
     function toggleTheme() {
@@ -1540,11 +1565,11 @@ function buildHtml(secret: string): string {
       resultEl.style.display = 'none';
       saveInputs();
 
-      const params = new URLSearchParams({ amount, from, index, format: 'json', secret: SECRET });
+      const params = new URLSearchParams({ amount, from, index });
       if (to) params.set('to', to);
 
       try {
-        const res  = await fetch('/calc?' + params.toString());
+        const res  = await apiJson('/calc?' + params.toString());
         const data = await res.json();
 
         if (!res.ok || data.error) {
@@ -1945,7 +1970,7 @@ function buildHtml(secret: string): string {
 
     async function fetchLatest() {
       try {
-        const data = await fetch('/latest?secret=' + SECRET).then(r => r.json());
+        const data = await apiJson('/latest').then(r => r.json());
         latestPeriods = data;
         updateLatestBadge();
       } catch (_) {}
@@ -2082,7 +2107,7 @@ function buildHtml(secret: string): string {
     }
 
     function fetchFngJson(market) {
-      return fetch('/fear-greed?market=' + market + '&format=json&secret=' + SECRET)
+      return apiJson('/fear-greed?market=' + market)
         .then(function(r) { return r.json(); });
     }
 
@@ -2320,7 +2345,7 @@ function buildHtml(secret: string): string {
       const panel = document.getElementById('aaiiSentimentPanel');
       if (!panel) return;
       try {
-        const res = await fetch('/aaii-sentiment?weeks=5&format=json&secret=' + SECRET);
+        const res = await apiJson('/aaii-sentiment?weeks=5');
         const data = await res.json();
         if (!res.ok || data.error || !Array.isArray(data.weeks) || data.weeks.length === 0) {
           panel.innerHTML = '<div class="market-loading">Unavailable</div>';
@@ -2372,8 +2397,8 @@ function buildHtml(secret: string): string {
       const [fiatRes, cryptoRes, marketRes, rateRes, fngStocksRes, fngCryptoRes] = await Promise.allSettled([
         fetch('https://api.frankfurter.app/latest?from=ILS&to=USD,EUR,GBP').then(r => r.json()),
         fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true').then(r => r.json()),
-        fetch('/market?secret=' + SECRET).then(r => r.json()),
-        fetch('/rate?secret=' + SECRET).then(r => r.json()),
+        apiJson('/market').then(r => r.json()),
+        apiJson('/rate').then(r => r.json()),
         fngStocksP,
         fngCryptoP,
       ]);
@@ -2561,7 +2586,7 @@ function buildHtml(secret: string): string {
 
       async function runSearch(q) {
         try {
-          const res  = await fetch('/stock/search?q=' + encodeURIComponent(q) + '&secret=' + SECRET);
+          const res  = await apiJson('/stock/search?q=' + encodeURIComponent(q));
           const data = await res.json();
           if (!Array.isArray(data) || data.length === 0) {
             dropdown.innerHTML = '<div class="autocomplete-empty">No results found.</div>';
@@ -2591,10 +2616,36 @@ function buildHtml(secret: string): string {
       }
     })();
 
+    function showSecLookupStart(id, isDigits) {
+      const resultEl = document.getElementById('secResult');
+      resultEl.className = 'result';
+      resultEl.style.display = 'block';
+      document.getElementById('secResultLabel').textContent = id.toUpperCase();
+      document.getElementById('secResultMain').innerHTML =
+        '<span class="sec-inline-loader">Loading price…</span>';
+      document.getElementById('secResultSub').textContent = '';
+      document.getElementById('secMetaKv').innerHTML = '';
+      document.getElementById('secPriceSlot').innerHTML = '';
+      document.getElementById('secFeeSlot').innerHTML =
+        '<div class="sec-async-loading"><span class="spinner sec-slot-spinner"></span>Management fee…</div>';
+      document.getElementById('secDivSlot').innerHTML = isDigits
+        ? ''
+        : '<div class="sec-async-loading"><span class="spinner sec-slot-spinner"></span>Dividend…</div>';
+    }
+
+    function secSheetFormulas(idStr, isDigits) {
+      return {
+        price: isDigits ? '=SEC_PRICE(' + idStr + ')' : '=SEC_PRICE("' + idStr + '")',
+        fee: isDigits ? '=MGMT_FEE(' + idStr + ')' : '=MGMT_FEE("' + idStr + '")',
+        trustee: isDigits ? '=TRUSTEE_FEE(' + idStr + ')' : '=TRUSTEE_FEE("' + idStr + '")',
+        divAmt: '=DIV_AMOUNT("' + idStr + '")',
+        divDate: '=DIV_DATE("' + idStr + '")',
+      };
+    }
+
     async function lookupSecurity(e) {
       const btn      = document.getElementById('secBtn');
       const progress = document.getElementById('secBtnProgress');
-      const resultEl = document.getElementById('secResult');
       const dropdown = document.getElementById('secAutocomplete');
 
       if (e) spawnRipple(btn, e);
@@ -2603,41 +2654,83 @@ function buildHtml(secret: string): string {
       const id = document.getElementById('secId').value.trim().replace(/[^A-Za-z0-9.\-]/g, '');
       if (!id) { showSecError('Please enter a security number or ticker symbol.'); return; }
 
+      const isDigits = /^\\d+$/.test(id);
+      const gen = ++secLookupGen;
+
       btn.classList.add('loading');
       btn.disabled = true;
       progress.classList.add('active');
-      resultEl.style.display = 'none';
+      showSecLookupStart(id, isDigits);
 
-      try {
-        const priceUrl = '/price?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET;
-        const feeUrl   = '/mgmt-fee?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET;
-        const divUrl   = '/dividend?id=' + encodeURIComponent(id) + '&format=json&secret=' + SECRET;
-        const isDigits = /^\\d+$/.test(id);
-        const [priceRes, feeRes, divRes] = await Promise.all([
-          fetch(priceUrl),
-          fetch(feeUrl).catch(function() { return null; }),
-          isDigits ? Promise.resolve(null) : fetch(divUrl).catch(function() { return null; }),
-        ]);
-        const data = await priceRes.json();
-        if (!priceRes.ok || data.error) { showSecError(data.error || 'Lookup failed.'); return; }
-        let feeData = null;
-        if (feeRes && feeRes.ok) {
+      const pricePath = '/price?id=' + encodeURIComponent(id);
+      const feePath = '/mgmt-fee?id=' + encodeURIComponent(id);
+
+      void (async function loadPrice() {
+        try {
+          const priceRes = await apiJson(pricePath);
+          if (gen !== secLookupGen) return;
+          const data = await priceRes.json();
+          if (!priceRes.ok || data.error) {
+            showSecError(data.error || 'Lookup failed.');
+            document.getElementById('secFeeSlot').innerHTML = '';
+            document.getElementById('secDivSlot').innerHTML = '';
+            return;
+          }
+          renderSecPrice(data);
+        } catch (err) {
+          if (gen !== secLookupGen) return;
+          showSecError('Network error: ' + err.message);
+          document.getElementById('secFeeSlot').innerHTML = '';
+          document.getElementById('secDivSlot').innerHTML = '';
+        } finally {
+          if (gen === secLookupGen) {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            progress.classList.remove('active');
+          }
+        }
+      })();
+
+      void (async function loadFee() {
+        try {
+          const feeRes = await apiJson(feePath);
+          if (gen !== secLookupGen) return;
+          if (!feeRes.ok) {
+            document.getElementById('secFeeSlot').innerHTML = '';
+            return;
+          }
           const parsed = await feeRes.json();
-          if (parsed && parsed.managementFee != null && !parsed.error) feeData = parsed;
+          if (parsed && parsed.managementFee != null && !parsed.error) {
+            renderSecFee(parsed, String(parsed.id ?? id));
+          } else {
+            document.getElementById('secFeeSlot').innerHTML = '';
+          }
+        } catch (_) {
+          if (gen !== secLookupGen) return;
+          document.getElementById('secFeeSlot').innerHTML = '';
         }
-        let divData = null;
-        if (divRes && divRes.ok) {
+      })();
+
+      void (async function loadDiv() {
+        if (isDigits) return;
+        try {
+          const divRes = await apiJson('/dividend?id=' + encodeURIComponent(id));
+          if (gen !== secLookupGen) return;
+          if (!divRes.ok) {
+            document.getElementById('secDivSlot').innerHTML = '';
+            return;
+          }
           const parsed = await divRes.json();
-          if (parsed && parsed.amount != null && parsed.nextDate && !parsed.error) divData = parsed;
+          if (parsed && parsed.amount != null && parsed.nextDate && !parsed.error) {
+            renderSecDiv(parsed, String(parsed.id ?? id));
+          } else {
+            document.getElementById('secDivSlot').innerHTML = '';
+          }
+        } catch (_) {
+          if (gen !== secLookupGen) return;
+          document.getElementById('secDivSlot').innerHTML = '';
         }
-        showSecResult(data, feeData, divData);
-      } catch (err) {
-        showSecError('Network error: ' + err.message);
-      } finally {
-        btn.classList.remove('loading');
-        btn.disabled = false;
-        progress.classList.remove('active');
-      }
+      })();
     }
 
     function showSecError(msg) {
@@ -2647,10 +2740,13 @@ function buildHtml(secret: string): string {
       document.getElementById('secResultLabel').textContent = 'Error';
       document.getElementById('secResultMain').textContent  = msg;
       document.getElementById('secResultSub').textContent   = '';
-      document.getElementById('secResultBody').innerHTML    = '';
+      document.getElementById('secMetaKv').innerHTML = '';
+      document.getElementById('secPriceSlot').innerHTML = '';
+      document.getElementById('secFeeSlot').innerHTML = '';
+      document.getElementById('secDivSlot').innerHTML = '';
     }
 
-    function showSecResult(data, feeData, divData) {
+    function renderSecPrice(data) {
       const resultEl = document.getElementById('secResult');
       resultEl.className = 'result';
       resultEl.style.display = 'block';
@@ -2690,45 +2786,47 @@ function buildHtml(secret: string): string {
 
       const idStr = String(data.id);
       const isDigits = /^\\d+$/.test(idStr);
-      const priceFormula = isDigits
-        ? '=SEC_PRICE(' + idStr + ')'
-        : '=SEC_PRICE("' + idStr + '")';
-      const feeFormula = isDigits
-        ? '=MGMT_FEE(' + idStr + ')'
-        : '=MGMT_FEE("' + idStr + '")';
-      const trusteeFormula = isDigits
-        ? '=TRUSTEE_FEE(' + idStr + ')'
-        : '=TRUSTEE_FEE("' + idStr + '")';
-      const divAmountFormula = '=DIV_AMOUNT("' + idStr + '")';
-      const divDateFormula = '=DIV_DATE("' + idStr + '")';
+      const f = secSheetFormulas(idStr, isDigits);
 
-      let metaBlock = '';
-      if (feeData) {
-        const feeParts = [
-          '<strong>' + feeData.managementFee + '%</strong> management fee',
-        ];
-        if (feeData.trusteeFee != null) feeParts.push('trustee ' + feeData.trusteeFee + '%');
-        if (feeData.variableFee != null) feeParts.push('variable ' + feeData.variableFee + '%');
-        if (feeData.managerName) feeParts.push(feeData.managerName);
-        metaBlock +=
-          '<div class="result-kv" style="margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted);">' +
+      document.getElementById('secPriceSlot').innerHTML = \`
+        <div class="sheets-box">
+          <div class="sheets-box-header">
+            <span class="sheets-box-label">Price</span>
+            <button class="copy-btn" id="secCopyBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <code id="secFormulaCode"></code>
+        </div>\`;
+      document.getElementById('secFormulaCode').textContent = f.price;
+      document.getElementById('secCopyBtn').addEventListener('click', function() {
+        copyFormula(this, f.price);
+      });
+    }
+
+    function appendSecMetaKv(html) {
+      const el = document.getElementById('secMetaKv');
+      el.innerHTML = el.innerHTML + html;
+    }
+
+    function renderSecFee(feeData, idStr) {
+      const isDigits = /^\\d+$/.test(idStr);
+      const f = secSheetFormulas(idStr, isDigits);
+      const feeParts = [
+        '<strong>' + feeData.managementFee + '%</strong> management fee',
+      ];
+      if (feeData.trusteeFee != null) feeParts.push('trustee ' + feeData.trusteeFee + '%');
+      if (feeData.variableFee != null) feeParts.push('variable ' + feeData.variableFee + '%');
+      if (feeData.managerName) feeParts.push(feeData.managerName);
+      appendSecMetaKv(
+        '<div class="result-kv" style="margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted);">' +
           feeParts.join(' · ') +
-          '</div>';
-      }
-      if (divData) {
-        const est = divData.isEstimate ? ' (est.)' : '';
-        metaBlock +=
-          '<div class="result-kv" style="margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-muted);">' +
-          'Next dividend: <strong>' + divData.amount + ' ' + (divData.currency || '') + '</strong> · ' +
-          divData.nextDate + est +
-          '</div>';
-      }
-
-      let feeBox = '';
-      if (feeData) {
-        let trusteeSheet = '';
-        if (feeData.trusteeFee != null) {
-          trusteeSheet = \`
+          '</div>',
+      );
+      let trusteeSheet = '';
+      if (feeData.trusteeFee != null) {
+        trusteeSheet = \`
         <div class="sheets-box" style="margin-top:0.5rem;">
           <div class="sheets-box-header">
             <span class="sheets-box-label">Trustee fee</span>
@@ -2739,8 +2837,8 @@ function buildHtml(secret: string): string {
           </div>
           <code id="secTrusteeFormulaCode"></code>
         </div>\`;
-        }
-        feeBox = \`
+      }
+      document.getElementById('secFeeSlot').innerHTML = \`
         <div class="sheets-box" style="margin-top:0.5rem;">
           <div class="sheets-box-header">
             <span class="sheets-box-label">Management fee</span>
@@ -2751,11 +2849,28 @@ function buildHtml(secret: string): string {
           </div>
           <code id="secFeeFormulaCode"></code>
         </div>\` + trusteeSheet;
+      document.getElementById('secFeeFormulaCode').textContent = f.fee;
+      document.getElementById('secFeeCopyBtn').addEventListener('click', function() {
+        copyFormula(this, f.fee);
+      });
+      if (feeData.trusteeFee != null) {
+        document.getElementById('secTrusteeFormulaCode').textContent = f.trustee;
+        document.getElementById('secTrusteeCopyBtn').addEventListener('click', function() {
+          copyFormula(this, f.trustee);
+        });
       }
+    }
 
-      let divBox = '';
-      if (divData) {
-        divBox = \`
+    function renderSecDiv(divData, idStr) {
+      const f = secSheetFormulas(idStr, /^\\d+$/.test(idStr));
+      const est = divData.isEstimate ? ' (est.)' : '';
+      appendSecMetaKv(
+        '<div class="result-kv" style="margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-muted);">' +
+          'Next dividend: <strong>' + divData.amount + ' ' + (divData.currency || '') + '</strong> · ' +
+          divData.nextDate + est +
+          '</div>',
+      );
+      document.getElementById('secDivSlot').innerHTML = \`
         <div class="sheets-box" style="margin-top:0.5rem;">
           <div class="sheets-box-header">
             <span class="sheets-box-label">Dividend amount</span>
@@ -2776,45 +2891,14 @@ function buildHtml(secret: string): string {
           </div>
           <code id="secDivDateFormulaCode"></code>
         </div>\`;
-      }
-
-      document.getElementById('secResultBody').innerHTML = metaBlock + \`
-        <div class="sheets-box">
-          <div class="sheets-box-header">
-            <span class="sheets-box-label">Price</span>
-            <button class="copy-btn" id="secCopyBtn">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              Copy
-            </button>
-          </div>
-          <code id="secFormulaCode"></code>
-        </div>\` + feeBox + divBox;
-      document.getElementById('secFormulaCode').textContent = priceFormula;
-      document.getElementById('secCopyBtn').addEventListener('click', function() {
-        copyFormula(this, priceFormula);
+      document.getElementById('secDivAmtFormulaCode').textContent = f.divAmt;
+      document.getElementById('secDivDateFormulaCode').textContent = f.divDate;
+      document.getElementById('secDivAmtCopyBtn').addEventListener('click', function() {
+        copyFormula(this, f.divAmt);
       });
-      if (feeData) {
-        document.getElementById('secFeeFormulaCode').textContent = feeFormula;
-        document.getElementById('secFeeCopyBtn').addEventListener('click', function() {
-          copyFormula(this, feeFormula);
-        });
-        if (feeData.trusteeFee != null) {
-          document.getElementById('secTrusteeFormulaCode').textContent = trusteeFormula;
-          document.getElementById('secTrusteeCopyBtn').addEventListener('click', function() {
-            copyFormula(this, trusteeFormula);
-          });
-        }
-      }
-      if (divData) {
-        document.getElementById('secDivAmtFormulaCode').textContent = divAmountFormula;
-        document.getElementById('secDivDateFormulaCode').textContent = divDateFormula;
-        document.getElementById('secDivAmtCopyBtn').addEventListener('click', function() {
-          copyFormula(this, divAmountFormula);
-        });
-        document.getElementById('secDivDateCopyBtn').addEventListener('click', function() {
-          copyFormula(this, divDateFormula);
-        });
-      }
+      document.getElementById('secDivDateCopyBtn').addEventListener('click', function() {
+        copyFormula(this, f.divDate);
+      });
     }
 
     // ── BOI Rate ──
@@ -2939,7 +3023,7 @@ function buildHtml(secret: string): string {
 
     async function fetchMarketStatus() {
       try {
-        const res = await fetch('/market-status?secret=' + SECRET);
+        const res = await apiJson('/market-status');
         if (!res.ok) return;
         const data = await res.json();
         renderMarketStatus(data);
@@ -2991,11 +3075,11 @@ function buildHtml(secret: string): string {
       progress.classList.add('active');
       resultEl.style.display = 'none';
 
-      const params = new URLSearchParams({ amount, from, index, format: 'json', secret: SECRET });
+      const params = new URLSearchParams({ amount, from, index });
       if (to) params.set('to', to);
 
       try {
-        const res  = await fetch('/calc?' + params.toString());
+        const res  = await apiJson('/calc?' + params.toString());
         const data = await res.json();
         if (!res.ok || data.error) {
           resultEl.style.display = 'block';
@@ -3064,8 +3148,8 @@ function buildHtml(secret: string): string {
 </html>`;
 }
 
-export function uiController(c: Context<{ Bindings: Env }>): Response {
-  return new Response(buildHtml(c.env.SECRET_KEY ?? ''), {
+export function uiController(_c: Context<{ Bindings: Env }>): Response {
+  return new Response(buildHtml(), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
 }

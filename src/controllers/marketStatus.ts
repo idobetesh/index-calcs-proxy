@@ -1,11 +1,12 @@
 import { Context } from 'hono';
 import { getAllMarketStatuses, getMarketStatus, MARKETS } from '../services/marketHours.js';
 import { marketStatusQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 
 export async function marketStatusController(c: Context): Promise<Response> {
   const parsed = marketStatusQuerySchema.safeParse({
     market: c.req.query('market'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {

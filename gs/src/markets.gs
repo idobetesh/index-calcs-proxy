@@ -17,8 +17,6 @@ function MARKET_OPEN(market) {
  * @returns {object} { tase, lse, nyse, six, asOf }
  */
 function getAllMarketStatuses() {
-  const secret = PropertiesService.getScriptProperties().getProperty('SECRET_KEY') ?? '';
-  const url = `https://index-calcs-proxy.idobetesh.workers.dev/market-status?secret=${secret}`;
-  const response = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
-  return JSON.parse(response.getContentText());
+  const raw = WORKER('market-status');
+  return JSON.parse(raw);
 }

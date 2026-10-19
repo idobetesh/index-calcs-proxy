@@ -51,6 +51,17 @@ describe('GET /rate', () => {
     expect(data).toHaveProperty('asOf', expect.any(String));
   });
 
+  it('returns JSON when Accept is application/json without format query', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(MOCK_SDMX), { status: 200 }),
+    );
+    const req = makeRequest('/rate');
+    req.headers.set('Accept', 'application/json');
+    const res = await app.fetch(req, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+  });
+
   it('returns text/plain with format=text', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(MOCK_SDMX), { status: 200 }),

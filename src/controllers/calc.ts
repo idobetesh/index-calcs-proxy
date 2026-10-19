@@ -7,6 +7,7 @@ import { calculateConstruction } from '../calculations/construction.js';
 import { calculateHousing } from '../calculations/housing.js';
 import { latestEntry, fetchIndexData } from '../services/cbs.js';
 import { calcQuerySchema } from '../schemas/index.js';
+import { resolveTextJsonFormat } from '../utils/responseFormat.js';
 import { IndexType } from '../types/cbs.js';
 
 type CalcFn = (params: CalcParams) => Promise<CalcResult>;
@@ -28,7 +29,7 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
     from: c.req.query('from'),
     to: c.req.query('to'),
     index: c.req.query('index'),
-    format: c.req.query('format'),
+    format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
   if (!parsed.success) {
