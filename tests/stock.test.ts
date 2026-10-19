@@ -34,7 +34,7 @@ describe('GET /price - ticker symbol routing', () => {
     const req = makeRequest('/price?id=AAPL&format=json&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
-    expect(spy).toHaveBeenCalledWith('AAPL');
+    expect(spy).toHaveBeenCalledWith('AAPL', undefined);
   });
 
   it('returns stock quote as JSON', async () => {
@@ -64,7 +64,7 @@ describe('GET /price - ticker symbol routing', () => {
     const spy = vi.spyOn(stockService, 'fetchStockQuote').mockResolvedValue(MOCK_STOCK_QUOTE);
     const req = makeRequest('/price?id=aapl&secret=test-secret');
     await app.fetch(req, env);
-    expect(spy).toHaveBeenCalledWith('AAPL');
+    expect(spy).toHaveBeenCalledWith('AAPL', undefined);
   });
 
   it('handles dotted tickers like TEVA.TA', async () => {
@@ -74,7 +74,7 @@ describe('GET /price - ticker symbol routing', () => {
     const req = makeRequest('/price?id=TEVA.TA&secret=test-secret');
     const res = await app.fetch(req, env);
     expect(res.status).toBe(200);
-    expect(spy).toHaveBeenCalledWith('TEVA.TA');
+    expect(spy).toHaveBeenCalledWith('TEVA.TA', undefined);
   });
 
   it('returns 404 when ticker is not found', async () => {

@@ -1,5 +1,6 @@
 import { DividendResult } from '../types/dividend.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
+import { fetchJinaReaderPage, jinaReaderFetchOptions } from '../utils/jina.js';
 
 const TIMEOUT_MS = 10_000;
 const YF_UA =
@@ -104,22 +105,23 @@ async function fetchChartDividends(ticker: string): Promise<{
   return { events, currency };
 }
 
-async function fetchJinaDividendHint(ticker: string): Promise<Date | null> {
+async function fetchJinaDividendHint(ticker: string, jinaApiKey?: string): Promise<Date | null> {
   const pageUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/`;
-  const res = await fetchWithTimeout(
-    `https://r.jina.ai/${pageUrl}`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-    TIMEOUT_MS,
-  );
-  if (!res.ok) return null;
-  const json = (await res.json()) as { data?: { content?: string } };
-  return parseJinaNextDate(json?.data?.content ?? '');
+  try {
+    const { content } = await fetchJinaReaderPage(
+      pageUrl,
+      jinaReaderFetchOptions(jinaApiKey, TIMEOUT_MS),
+    );
+    return parseJinaNextDate(content);
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Dividend amount and next date for Yahoo tickers (stocks / ETFs). TASE numeric ids not supported.
  */
-export async function fetchDividend(id: string): Promise<DividendResult> {
+export async function fetchDividend(id: string, jinaApiKey?: string): Promise<DividendResult> {
   if (/^\d+$/.test(id)) {
     throw new Error(
       `Dividends for TASE number "${id}" are not supported. Use a ticker (e.g. TEVA.TA).`,
@@ -135,7 +137,7 @@ export async function fetchDividend(id: string): Promise<DividendResult> {
   const last = past[0] ?? null;
 
   let next = projectNext(events);
-  const jinaDate = await fetchJinaDividendHint(ticker);
+  const jinaDate = await fetchJinaDividendHint(ticker, jinaApiKey);
   if (jinaDate && startOfUtcDay(jinaDate) > now) {
     next = {
       date: jinaDate,

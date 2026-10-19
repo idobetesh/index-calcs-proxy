@@ -1,6 +1,7 @@
 import { ManagementFeeResult } from '../types/managementFee.js';
 import { MayaFundResponse } from '../types/tase.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
+import { fetchJinaReaderPage, jinaReaderFetchOptions } from '../utils/jina.js';
 
 const MAYA_TIMEOUT_MS = 8_000;
 /** Jina-rendered Yahoo pages are slow; expense ratio only available via this path for tickers. */
@@ -51,15 +52,12 @@ function fromMaya(id: string, data: MayaFundResponse, source: string): Managemen
   };
 }
 
-async function fetchJinaPage(url: string): Promise<string> {
-  const res = await fetchWithTimeout(
-    `https://r.jina.ai/${url}`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-    JINA_TIMEOUT_MS,
+async function fetchJinaPage(url: string, jinaApiKey?: string): Promise<string> {
+  const { content } = await fetchJinaReaderPage(
+    url,
+    jinaReaderFetchOptions(jinaApiKey, JINA_TIMEOUT_MS),
   );
-  if (!res.ok) throw new Error(`[jina] HTTP ${res.status}`);
-  const json = (await res.json()) as { data?: { content?: string } };
-  return json?.data?.content ?? '';
+  return content;
 }
 
 function parseFeePercent(raw: string | undefined): number | null {
@@ -68,9 +66,12 @@ function parseFeePercent(raw: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function fetchTaseFeeViaMajorData(id: string): Promise<ManagementFeeResult> {
+async function fetchTaseFeeViaMajorData(
+  id: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   const pageUrl = `https://market.tase.co.il/en/market_data/security/${id}/major_data`;
-  const content = await fetchJinaPage(pageUrl);
+  const content = await fetchJinaPage(pageUrl, jinaApiKey);
   const managementFee = parseFeePercent(TASE_MAJOR_MGMT_FEE.exec(content)?.[1]);
   if (managementFee == null) {
     throw new Error('[tase-major-jina] No management fee in page');
@@ -89,9 +90,12 @@ async function fetchTaseFeeViaMajorData(id: string): Promise<ManagementFeeResult
   };
 }
 
-async function fetchTaseFeeViaTheMarker(id: string): Promise<ManagementFeeResult> {
+async function fetchTaseFeeViaTheMarker(
+  id: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   const pageUrl = `http://finance.themarker.com/etf/${id}`;
-  const content = await fetchJinaPage(pageUrl);
+  const content = await fetchJinaPage(pageUrl, jinaApiKey);
   const managementFee = parseFeePercent(THEMARKER_MGMT_FEE.exec(content)?.[1]);
   if (managementFee == null) {
     throw new Error('[themarker-jina] No management fee in page');
@@ -110,11 +114,14 @@ async function fetchTaseFeeViaTheMarker(id: string): Promise<ManagementFeeResult
   };
 }
 
-async function fetchTaseManagementFeeFromScrape(id: string): Promise<ManagementFeeResult> {
+async function fetchTaseManagementFeeFromScrape(
+  id: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   const errors: string[] = [];
-  for (const source of [fetchTaseFeeViaMajorData, fetchTaseFeeViaTheMarker]) {
+  for (const sourceFn of [fetchTaseFeeViaMajorData, fetchTaseFeeViaTheMarker]) {
     try {
-      return await source(id);
+      return await sourceFn(id, jinaApiKey);
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
     }
@@ -125,7 +132,10 @@ async function fetchTaseManagementFeeFromScrape(id: string): Promise<ManagementF
 /**
  * TASE fund / ETF by security number — Maya APIs, then TASE / TheMarker pages (Jina).
  */
-export async function fetchTaseManagementFee(id: string): Promise<ManagementFeeResult> {
+export async function fetchTaseManagementFee(
+  id: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   const sources: Array<{ path: 'mutual' | 'etf'; label: string }> = [
     { path: 'mutual', label: 'maya-mutual' },
     { path: 'etf', label: 'maya-etf' },
@@ -142,7 +152,7 @@ export async function fetchTaseManagementFee(id: string): Promise<ManagementFeeR
   }
 
   try {
-    return await fetchTaseManagementFeeFromScrape(id);
+    return await fetchTaseManagementFeeFromScrape(id, jinaApiKey);
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));
   }
@@ -236,9 +246,14 @@ async function fetchIsinsFromYahooProfile(ticker: string): Promise<string[]> {
   return isins;
 }
 
-async function fetchTerFromJustEtf(isin: string, tickerHint?: string): Promise<number> {
+async function fetchTerFromJustEtf(
+  isin: string,
+  tickerHint?: string,
+  jinaApiKey?: string,
+): Promise<number> {
   const content = await fetchJinaPage(
     `https://www.justetf.com/en/etf-profile.html?isin=${encodeURIComponent(isin)}`,
+    jinaApiKey,
   );
   if (tickerHint) {
     const base = tickerHint.replace(/\.[A-Z]{1,4}$/i, '');
@@ -257,7 +272,11 @@ async function fetchTerFromJustEtf(isin: string, tickerHint?: string): Promise<n
   return pct;
 }
 
-async function resolveTerViaJustEtf(ticker: string, jinaContent: string): Promise<number> {
+async function resolveTerViaJustEtf(
+  ticker: string,
+  jinaContent: string,
+  jinaApiKey?: string,
+): Promise<number> {
   const candidates = [
     ...extractUcitsIsins(jinaContent),
     ...(await fetchIsinsFromYahooProfile(ticker)),
@@ -268,7 +287,7 @@ async function resolveTerViaJustEtf(ticker: string, jinaContent: string): Promis
     if (seen.has(isin)) continue;
     seen.add(isin);
     try {
-      return await fetchTerFromJustEtf(isin, ticker);
+      return await fetchTerFromJustEtf(isin, ticker, jinaApiKey);
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
     }
@@ -280,20 +299,26 @@ async function resolveTerViaJustEtf(ticker: string, jinaContent: string): Promis
   );
 }
 
-async function fetchTickerExpenseViaJina(ticker: string): Promise<ManagementFeeResult> {
+async function fetchTickerExpenseViaJina(
+  ticker: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   const upper = ticker.toUpperCase();
   const pageUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(upper)}/`;
-  const res = await fetchWithTimeout(
-    `https://r.jina.ai/${pageUrl}`,
-    { headers: { Accept: 'application/json', 'User-Agent': 'curl/8.0' } },
-    JINA_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error(`[jina-yf-fee] HTTP ${res.status}`);
-
-  const json = (await res.json()) as { data?: { content?: string; title?: string } };
-  const content = json?.data?.content ?? '';
-  const title = json?.data?.title ?? '';
-  const nameMatch = title.match(/^(.+?)\s*\(/);
+  let content: string;
+  let title: string | undefined;
+  try {
+    ({ content, title } = await fetchJinaReaderPage(
+      pageUrl,
+      jinaReaderFetchOptions(jinaApiKey, JINA_TIMEOUT_MS),
+    ));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      msg.startsWith('[jina]') ? msg.replace('[jina]', '[jina-yf-fee]') : `[jina-yf-fee] ${msg}`,
+    );
+  }
+  const nameMatch = (title ?? '').match(/^(.+?)\s*\(/);
   const name = nameMatch?.[1]?.trim() ?? upper;
 
   const yahooMatch = EXPENSE_RATIO_MARKER.exec(content);
@@ -301,7 +326,7 @@ async function fetchTickerExpenseViaJina(ticker: string): Promise<ManagementFeeR
   let source = 'yahoo-jina';
 
   if (!Number.isFinite(pct)) {
-    pct = await resolveTerViaJustEtf(upper, content);
+    pct = await resolveTerViaJustEtf(upper, content, jinaApiKey);
     source = 'justetf-jina';
   }
 
@@ -318,7 +343,10 @@ async function fetchTickerExpenseViaJina(ticker: string): Promise<ManagementFeeR
   };
 }
 
-async function fetchTickerExpense(ticker: string): Promise<ManagementFeeResult> {
+async function fetchTickerExpense(
+  ticker: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   const errors: string[] = [];
   try {
     return await fetchTickerExpenseViaYahooHtml(ticker);
@@ -326,7 +354,7 @@ async function fetchTickerExpense(ticker: string): Promise<ManagementFeeResult> 
     errors.push(err instanceof Error ? err.message : String(err));
   }
   try {
-    return await fetchTickerExpenseViaJina(ticker);
+    return await fetchTickerExpenseViaJina(ticker, jinaApiKey);
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));
   }
@@ -336,9 +364,12 @@ async function fetchTickerExpense(ticker: string): Promise<ManagementFeeResult> 
 /**
  * TASE numeric id → Maya; ticker → Yahoo HTML, then Jina / justETF fallbacks.
  */
-export async function fetchManagementFee(id: string): Promise<ManagementFeeResult> {
+export async function fetchManagementFee(
+  id: string,
+  jinaApiKey?: string,
+): Promise<ManagementFeeResult> {
   if (/^\d+$/.test(id)) {
-    return fetchTaseManagementFee(id);
+    return fetchTaseManagementFee(id, jinaApiKey);
   }
-  return fetchTickerExpense(id);
+  return fetchTickerExpense(id, jinaApiKey);
 }

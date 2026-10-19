@@ -32,7 +32,7 @@ export async function stockController(c: Context<{ Bindings: Env }>): Promise<Re
   if (cached) return cached;
 
   try {
-    const quote = await fetchStockQuote(upperTicker);
+    const quote = await fetchStockQuote(upperTicker, c.env.JINA_API_KEY);
     const cacheControl = `public, max-age=${CACHE_TTL_SECONDS}`;
 
     const response =

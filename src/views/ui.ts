@@ -1945,7 +1945,7 @@ function buildHtml(secret: string): string {
 
     async function fetchLatest() {
       try {
-        const data = await fetch('/latest').then(r => r.json());
+        const data = await fetch('/latest?secret=' + SECRET).then(r => r.json());
         latestPeriods = data;
         updateLatestBadge();
       } catch (_) {}

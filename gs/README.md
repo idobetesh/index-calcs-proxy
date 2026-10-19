@@ -61,15 +61,22 @@ Then create `.clasp.json` in this folder (it's gitignored for the `scriptId` —
 
 ---
 
-## 5. Set the secret key (one-time)
+## 5. Worker secrets (one-time)
 
-The `SECRET_KEY` is stored in Apps Script **Script Properties** — never hardcoded in the source.
+Two values live on the **Cloudflare Worker** (not in the sheet). Apps Script only needs `SECRET_KEY`.
+
+| Secret         | Required | Where to set                                                                                                                                                                                             |
+| -------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SECRET_KEY`   | Yes      | `wrangler secret put SECRET_KEY` (production) · `.dev.vars` (local `npm run dev`) · Apps Script **Script properties** (same string)                                                                      |
+| `JINA_API_KEY` | No       | `wrangler secret put JINA_API_KEY` · optional line in `.dev.vars` — Bearer token for [Jina Reader](https://jina.ai); lowers 429 rate limits on price, mgmt-fee, dividend, fear-greed, and AAII fallbacks |
+
+**Apps Script — `SECRET_KEY` only**
 
 1. Open your Google Sheet → **Extensions → Apps Script**
 2. Go to **Project Settings** (⚙️) → **Script properties**
 3. Click **Add script property**
    - Property: `SECRET_KEY`
-   - Value: your Cloudflare Worker secret (same one in `.dev.vars` / Cloudflare dashboard)
+   - Value: same as the Worker `SECRET_KEY` (not the Jina key)
 4. Click **Save script properties**
 
 The code reads it at runtime:
@@ -77,6 +84,16 @@ The code reads it at runtime:
 ```typescript
 const secret = PropertiesService.getScriptProperties().getProperty('SECRET_KEY') ?? '';
 ```
+
+**Rotate `SECRET_KEY`:** generate a new value → `wrangler secret put SECRET_KEY` → update Script properties → redeploy is not required for secrets alone. Update any bookmarks that use `?key=` / `?secret=` on the Worker UI.
+
+**Optional `JINA_API_KEY`:** after adding or changing it, run `wrangler deploy` (or rely on CI). Test with:
+
+```bash
+curl -sS -H "Authorization: Bearer YOUR_JINA_KEY" "https://r.jina.ai/https://example.com" | head
+```
+
+Worker routes authenticate with `SECRET_KEY` in `?secret=` or `Authorization: Bearer` — never put the Jina key in sheet formulas or the UI URL.
 
 ---
 
@@ -344,7 +361,7 @@ gs/
 | Function not found in sheet                                        | After `clasp push`, reload the sheet — new functions take a moment to appear                                                                                                                       |
 | `SECRET_KEY` missing                                               | Check Project Settings → Script properties — make sure `SECRET_KEY` is set                                                                                                                         |
 | Worker returns 401                                                 | Wrong secret in Script Properties — verify it matches Cloudflare                                                                                                                                   |
-| `AAII_SENTIMENT` / Worker 502, `[aaii-jina] HTTP 429`              | Jina rate limit — redeploy latest Worker (XLS fallback + stale cache), wait ~30m, or set Worker secret `JINA_API_KEY`. Sheets caches successful results ~24h.                                      |
+| `AAII_SENTIMENT` / Worker 502, `[aaii-jina] HTTP 429`              | Jina rate limit — redeploy latest Worker (XLS fallback + stale cache), wait ~30m, or set Worker secret `JINA_API_KEY` (applies to all Jina fallbacks). Sheets caches successful results ~24h.      |
 | Rate limit errors                                                  | You're hitting Google's 6min/day limit — use time triggers to spread calls out                                                                                                                     |
 | **Deploy Apps Script** CI fails (`access_token` / `invalid_grant`) | GitHub → **Settings → Secrets**: update **`CLASP_RC`** with the full contents of `~/.clasprc.json` after `clasp login`. Verify **`CLASP_SCRIPT_ID`**. Test locally: `cd gs && clasp push --force`. |
 
