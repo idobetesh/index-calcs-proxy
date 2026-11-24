@@ -1,9 +1,10 @@
 import { Context } from 'hono';
 import { Env } from '../types/env.js';
 import { CalcParams, CalcResult } from '../types/calc.js';
-import { isPeriodBefore } from '../utils/format.js';
+import { currentIsraelPeriod, isPeriodBefore } from '../utils/format.js';
 import { calculateCpi } from '../calculations/cpi.js';
 import { calculateConstruction } from '../calculations/construction.js';
+import { calculateKnownIndex } from '../calculations/knownIndex.js';
 import { calculateHousing } from '../calculations/housing.js';
 import { latestEntry, fetchIndexData } from '../services/cbs.js';
 import { calcQuerySchema } from '../schemas/index.js';
@@ -29,6 +30,8 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
     from: c.req.query('from'),
     to: c.req.query('to'),
     index: c.req.query('index'),
+    basis: c.req.query('basis'),
+    region: c.req.query('region')?.trim().toLowerCase(),
     format: resolveTextJsonFormat(c.req.query('format'), c.req.header('Accept')),
   });
 
@@ -37,8 +40,12 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
     return c.json({ error: message }, 400);
   }
 
-  const { amount, from: fromStr, index: indexStr, format } = parsed.data;
-  let toPeriod = parsed.data.to ?? '';
+  const { amount, from: fromStr, index: indexStr, format, region } = parsed.data;
+  const basis = parsed.data.basis ?? (region ? 'known' : 'period');
+  if (region && indexStr !== 'housing') {
+    return c.json({ error: 'Region requires index=housing.' }, 400);
+  }
+  let toPeriod = parsed.data.to ?? (basis === 'known' || region ? currentIsraelPeriod() : '');
 
   // Resolve to period: default to latest available
   if (!toPeriod) {
@@ -57,7 +64,7 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
     }
   }
 
-  if (!isPeriodBefore(fromStr, toPeriod)) {
+  if (!isPeriodBefore(fromStr, toPeriod) && !(basis === 'known' && fromStr === toPeriod)) {
     return c.json({ error: '"from" must be earlier than "to".' }, 400);
   }
 
@@ -70,8 +77,10 @@ export async function calcController(c: Context<{ Bindings: Env }>): Promise<Res
   };
 
   try {
-    const calculator = CALCULATORS[indexStr];
-    const result = await calculator(params);
+    const result =
+      basis === 'known' || region
+        ? await calculateKnownIndex(params, region, basis)
+        : await CALCULATORS[indexStr](params);
 
     if (format === 'json') {
       return c.json(result);

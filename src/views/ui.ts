@@ -1,5 +1,22 @@
 import { Context } from 'hono';
+import { HOUSING_DISTRICTS } from '../services/cbsDistricts.js';
 import { Env } from '../types/env.js';
+
+function housingRegionField(id: string): string {
+  const options = HOUSING_DISTRICTS.map((region) => {
+    const label = region.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+    return `<option value="${region}">${label}</option>`;
+  }).join('');
+  return `<div class="field full" id="${id}Field" hidden>
+    <label for="${id}">Housing region</label>
+    <div class="select-wrap">
+      <select id="${id}" disabled>
+        <option value="">National</option>
+        ${options}
+      </select>
+    </div>
+  </div>`;
+}
 
 function buildHtml(): string {
   return `<!DOCTYPE html>
@@ -303,6 +320,7 @@ function buildHtml(): string {
     }
     .field { display: flex; flex-direction: column; gap: 0.35rem; }
     .field.full { grid-column: 1 / -1; }
+    .field[hidden] { display: none; }
 
     label {
       font-size: 0.75rem;
@@ -1261,7 +1279,7 @@ function buildHtml(): string {
     <div class="card-header">
       <div class="badge">🇮🇱 Israeli CBS</div>
       <h1>Index Calculator</h1>
-      <p>CPI &amp; Construction index-linked amount adjustment</p>
+      <p>CPI, construction and housing index adjustments</p>
       <div class="rate-chip" id="rateChip">
         <div class="rate-chip-label"><a href="https://www.boi.org.il/roles/monetary-policy/interest-rate-dates/" target="_blank" rel="noopener noreferrer" class="market-link">BOI Rate ↗</a></div>
         <div class="rate-chip-value" id="rateChipValue"></div>
@@ -1293,7 +1311,7 @@ function buildHtml(): string {
       <div class="field full">
         <label for="index">Index Type <span class="opt" id="latestBadge"></span></label>
         <div class="select-wrap">
-          <select id="index" onchange="updateLatestBadge()">
+          <select id="index" onchange="updateRegionFields()">
             <option value="cpi">CPI — Consumer Price Index</option>
             <option value="construction">Construction Index</option>
             <option value="housing">Housing Price Index</option>
@@ -1301,6 +1319,7 @@ function buildHtml(): string {
         </div>
         <div id="nextPublishChip"></div>
       </div>
+      ${housingRegionField('region')}
 
     </div>
 
@@ -1356,13 +1375,14 @@ function buildHtml(): string {
         <div class="field full">
           <label for="cmpIndex">Index Type</label>
           <div class="select-wrap">
-            <select id="cmpIndex">
+            <select id="cmpIndex" onchange="updateRegionFields()">
               <option value="cpi">CPI — Consumer Price Index</option>
               <option value="construction">Construction Index</option>
               <option value="housing">Housing Price Index</option>
             </select>
           </div>
         </div>
+        ${housingRegionField('cmpRegion')}
       </div>
       <div style="margin-top:0.75rem;">
         <div class="btn-wrap">
@@ -1544,6 +1564,36 @@ function buildHtml(): string {
       return true;
     }
 
+    function selectedRegion(index, id) {
+      return index === 'housing' ? document.getElementById(id).value : '';
+    }
+
+    function indexLabel(index, region) {
+      const select = document.getElementById('region');
+      const option = Array.from(select.options).find(opt => opt.value === region);
+      return index.toUpperCase() + (index === 'housing' && region && option ? ' · ' + option.text : '');
+    }
+
+    function updateRegionFields() {
+      for (const [indexId, regionId] of [['index', 'region'], ['cmpIndex', 'cmpRegion']]) {
+        const active = document.getElementById(indexId).value === 'housing';
+        document.getElementById(regionId + 'Field').hidden = !active;
+        document.getElementById(regionId).disabled = !active;
+      }
+      updateLatestBadge();
+    }
+
+    function calculationParams(inputs) {
+      const { amount, from, to, index, region } = inputs;
+      const params = new URLSearchParams({ amount, from, index });
+      if (to) params.set('to', to);
+      if (region) {
+        params.set('region', region);
+        params.set('basis', 'period');
+      }
+      return params;
+    }
+
     // ── Calculate ──
     async function calculate(e) {
       const btn      = document.getElementById('calcBtn');
@@ -1557,6 +1607,7 @@ function buildHtml(): string {
       const to     = document.getElementById('to').value.trim();
       const index  = document.getElementById('index').value;
 
+      const region = selectedRegion(index, 'region');
       if (!validateInputs(amount, from, to)) return;
 
       btn.classList.add('loading');
@@ -1565,8 +1616,8 @@ function buildHtml(): string {
       resultEl.style.display = 'none';
       saveInputs();
 
-      const params = new URLSearchParams({ amount, from, index });
-      if (to) params.set('to', to);
+      const inputs = { amount, from, to, index, region };
+      const params = calculationParams(inputs);
 
       try {
         const res  = await apiJson('/calc?' + params.toString());
@@ -1577,10 +1628,8 @@ function buildHtml(): string {
           return;
         }
 
-        const hashParams = new URLSearchParams({ amount, from, index });
-        if (to) hashParams.set('to', to);
-        window.location.replace('#' + hashParams.toString());
-        showResult(data);
+        window.location.replace('#' + params.toString());
+        showResult(data, inputs);
       } catch (e) {
         showError('Network error: ' + e.message);
       } finally {
@@ -1628,16 +1677,10 @@ function buildHtml(): string {
       requestAnimationFrame(step);
     }
 
-    function showResult(data) {
+    function showResult(data, inputs) {
       const valMsg = document.getElementById('validationMsg');
       if (valMsg) valMsg.style.display = 'none';
-      const _histInputs = {
-        amount: document.getElementById('amount').value.replace(/,/g, '').trim(),
-        from: document.getElementById('from').value.trim(),
-        to: document.getElementById('to').value.trim(),
-        index: document.getElementById('index').value,
-      };
-      saveHistory(_histInputs, data);
+      saveHistory(inputs, data);
       const resultEl  = document.getElementById('result');
       const pct       = data.percentage;
       const sign      = pct >= 0 ? '+' : '';
@@ -1702,11 +1745,12 @@ function buildHtml(): string {
         <span class="period-arrow">→</span>
         <span class="period-chip">\${data.toPeriod}</span>
         <span class="duration-chip">\${periodDiff(data.fromPeriod, data.toPeriod)}</span>
-        <span style="margin-left:auto;font-size:0.75rem;color:var(--text-muted);">\${document.getElementById('index').value.toUpperCase()}</span>
+        <span style="margin-left:auto;font-size:0.75rem;color:var(--text-muted);">\${indexLabel(inputs.index, inputs.region)}</span>
       \`;
 
       const formula =
-        '=CALC_AMOUNT(H3, TEXT(M2, "YYYY-MM"), "' + _histInputs.index + '")';
+        '=CALC_AMOUNT(H3, "' + data.fromPeriod + '", "' + inputs.index + '", "' +
+        data.toPeriod + '", "' + inputs.region + '", "period")';
       const box = document.getElementById('sheetsBox');
       box.innerHTML = \`
         <div class="sheets-box-header">
@@ -1816,7 +1860,7 @@ function buildHtml(): string {
     }
 
     // ── Persist inputs ──
-    const FIELDS = ['amount', 'from', 'to', 'index'];
+    const FIELDS = ['amount', 'from', 'to', 'index', 'region'];
 
     function saveInputs() {
       const saved = {};
@@ -1859,6 +1903,7 @@ function buildHtml(): string {
         from: inputs.from,
         to: inputs.to,
         index: inputs.index,
+        region: inputs.region,
         indexedAmount: result.indexedAmount,
         percentage: result.percentage,
         fromPeriod: result.fromPeriod,
@@ -1868,7 +1913,7 @@ function buildHtml(): string {
       try {
         const hist = JSON.parse(localStorage.getItem('calc-history') || '[]');
         const deduped = hist.filter(function(h) {
-          return !(h.amount === entry.amount && h.from === entry.from && h.to === entry.to && h.index === entry.index);
+          return !(h.amount === entry.amount && h.from === entry.from && h.to === entry.to && h.index === entry.index && (h.region || '') === entry.region);
         });
         deduped.unshift(entry);
         localStorage.setItem('calc-history', JSON.stringify(deduped.slice(0, 10)));
@@ -1889,7 +1934,8 @@ function buildHtml(): string {
       document.getElementById('from').value  = entry.from;
       document.getElementById('to').value    = entry.to   || '';
       document.getElementById('index').value = entry.index;
-      updateLatestBadge();
+      document.getElementById('region').value = entry.region || '';
+      updateRegionFields();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1908,7 +1954,7 @@ function buildHtml(): string {
       container.innerHTML = hist.map(function(h, i) {
         const sign = h.percentage >= 0 ? '+' : '';
         const cls  = h.percentage >= 0 ? 'positive' : 'negative';
-        const label = h.index.toUpperCase();
+        const label = indexLabel(h.index, h.region);
         const toStr = h.to ? ' \u2192 ' + h.toPeriod : ' \u2192 latest';
         return '<div class="hist-row" onclick="restoreHistoryEntry(histEntries[' + i + '])">' +
           '<span class="hist-period">' + h.fromPeriod + toStr + '</span>' +
@@ -1948,10 +1994,13 @@ function buildHtml(): string {
       const index  = p.get('index');
       if (amount) { const el = document.getElementById('amount'); el.value = amount; formatAmountDisplay(el); }
       if (from)  document.getElementById('from').value  = from;
-      if (to)    document.getElementById('to').value    = to;
+      document.getElementById('to').value = to || '';
+      document.getElementById('region').value = p.get('region') || '';
       if (index) document.getElementById('index').value = index;
       if (amount && from) calculate(null);
     })();
+
+    document.getElementById('region').addEventListener('change', updateLatestBadge);
 
     document.getElementById('from').addEventListener('change', function() {
       const a = document.getElementById('amount').value.replace(/,/g, '').trim();
@@ -2039,7 +2088,7 @@ function buildHtml(): string {
 
     function updateLatestBadge() {
       const index   = document.getElementById('index').value;
-      const period  = latestPeriods[index];
+      const period  = selectedRegion(index, 'region') ? null : latestPeriods[index];
       const badge   = document.getElementById('latestBadge');
       if (!period) { badge.innerHTML = ''; return; }
 
@@ -2052,6 +2101,7 @@ function buildHtml(): string {
       updateNextPublishChip();
     }
 
+    updateRegionFields();
     fetchLatest();
     updateNextPublishChip();
 
@@ -3048,7 +3098,9 @@ function buildHtml(): string {
         document.getElementById('cmpTo').value    = document.getElementById('to').value;
         // Default compare index to the other main one
         const mainIndex = document.getElementById('index').value;
-        document.getElementById('cmpIndex').value = mainIndex === 'cpi' ? 'construction' : 'cpi';
+        document.getElementById('cmpIndex').value = mainIndex === 'cpi' ? 'construction' : mainIndex === 'housing' ? 'housing' : 'cpi';
+        document.getElementById('cmpRegion').value = '';
+        updateRegionFields();
       }
     }
 
@@ -3064,6 +3116,7 @@ function buildHtml(): string {
       const to     = document.getElementById('cmpTo').value.trim();
       const index  = document.getElementById('cmpIndex').value;
 
+      const region = selectedRegion(index, 'cmpRegion');
       if (!amount || !from) {
         resultEl.style.display = 'block';
         resultEl.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:0.5rem 0;">Amount and From period are required (from the main form).</div>';
@@ -3075,8 +3128,7 @@ function buildHtml(): string {
       progress.classList.add('active');
       resultEl.style.display = 'none';
 
-      const params = new URLSearchParams({ amount, from, index });
-      if (to) params.set('to', to);
+      const params = calculationParams({ amount, from, to, index, region });
 
       try {
         const res  = await apiJson('/calc?' + params.toString());
@@ -3086,7 +3138,7 @@ function buildHtml(): string {
           resultEl.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:0.5rem 0;">' + (data.error || 'Comparison failed.') + '</div>';
           return;
         }
-        showCompareResult(data);
+        showCompareResult(data, indexLabel(index, region));
       } catch (err) {
         resultEl.style.display = 'block';
         resultEl.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:0.5rem 0;">Network error: ' + err.message + '</div>';
@@ -3097,14 +3149,13 @@ function buildHtml(): string {
       }
     }
 
-    function showCompareResult(cmpData) {
+    function showCompareResult(cmpData, cmpIndex) {
       // Read primary result data from the current form + DOM
       const primAmount   = parseFloat(document.getElementById('amount').value.replace(/,/g,'')) || 0;
       const primIndexed  = parseFloat(document.getElementById('resultMain').textContent.replace(/[₪,]/g,'')) || 0;
       const primPeriodEl = document.getElementById('periodRow');
       const primPeriod   = primPeriodEl ? primPeriodEl.textContent.replace(/\\s+/g,' ').trim() : '';
-      const primIndex    = document.getElementById('index').value.toUpperCase();
-      const cmpIndex     = document.getElementById('cmpIndex').value.toUpperCase();
+      const primIndex    = primPeriodEl?.lastElementChild?.textContent || '';
       const cmpSign      = cmpData.percentage >= 0 ? '+' : '';
       const primPct      = primAmount > 0 ? (((primIndexed - primAmount) / primAmount) * 100).toFixed(2) : '—';
       const primSign     = primAmount > 0 && ((primIndexed - primAmount) / primAmount) * 100 >= 0 ? '+' : '';

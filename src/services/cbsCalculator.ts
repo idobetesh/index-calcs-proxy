@@ -63,6 +63,7 @@ function apiDateToPeriod(apiDate: string): string {
 export async function fetchCbsCalculation(
   indexType: IndexType,
   params: CalcParams,
+  expectedPeriods?: { from: string; to: string },
 ): Promise<CalcResult> {
   const id = INDEX_IDS[indexType];
   const fromDate = periodToApiDate(params.from);
@@ -96,13 +97,22 @@ export async function fetchCbsCalculation(
     // CBS calculator snaps dates to "index available on that date" — due to publication
     // lag this is always earlier than the requested period.  Reject the result so the
     // chaining calculation (which uses the index FOR the requested month) takes over.
-    if (fromPeriod < params.from) {
+    if (!expectedPeriods && fromPeriod < params.from) {
       throw new Error(
         `CBS calculator snapped fromPeriod to ${fromPeriod}, earlier than requested ${params.from}`,
       );
     }
 
     const toPeriod = apiDateToPeriod(ans.to_index_date);
+    if (
+      expectedPeriods &&
+      (fromPeriod !== expectedPeriods.from || toPeriod !== expectedPeriods.to)
+    ) {
+      throw new Error(
+        `CBS calculator returned unexpected periods ${fromPeriod} through ${toPeriod}`,
+      );
+    }
+
     const indexedAmount = Math.round(ans.to_value);
     const difference = indexedAmount - params.amount;
     const percentage = Math.round(ans.change_percent * 100) / 100;

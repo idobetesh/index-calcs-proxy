@@ -22,7 +22,10 @@ export async function calculateConstruction(params: CalcParams): Promise<CalcRes
 }
 
 async function chainingCalc(params: CalcParams): Promise<CalcResult> {
-  const entries = await fetchIndexData('construction');
+  let entries = await fetchIndexData('construction');
+  if (entries[0] && params.from < entries[0].period) {
+    entries = await fetchIndexData('construction', params);
+  }
 
   const fromEntry = findEntry(entries, params.from);
   if (!fromEntry) {
@@ -72,7 +75,8 @@ function pickBest(
   if (aVal) return aVal;
   if (bVal) return bVal;
 
-  const reason =
-    a.status === 'rejected' ? String(a.reason) : String((b as PromiseRejectedResult).reason);
-  throw new Error(`${label} calculation failed: ${reason}`);
+  const errors = [a, b].flatMap((result) =>
+    result.status === 'rejected' ? [String(result.reason)] : [],
+  );
+  throw new Error(`${label} calculation failed: ${errors.join('; ')}`);
 }

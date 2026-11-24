@@ -157,3 +157,44 @@ describe('fetchIndexData', () => {
     expect(entries[1]?.period).toBe('2024-04');
   });
 });
+
+it.each([
+  ['cpi', '120010'],
+  ['construction', '200010'],
+  ['housing', '40010'],
+] as const)(
+  'requests the historical range for %s from the correct CBS series',
+  async (index, id) => {
+    const mockFetch = vi.fn().mockResolvedValue(jsonResponse(cbsResponse(ENTRIES_A)));
+    vi.stubGlobal('fetch', mockFetch);
+
+    await fetchIndexData(index, { from: '2020-12', to: '2026-08' });
+
+    const url = new URL(mockFetch.mock.calls[0]?.[0] as string);
+    expect(url.searchParams.get('id')).toBe(id);
+    expect(url.searchParams.get('startPeriod')).toBe('12-2020');
+    expect(url.searchParams.get('endPeriod')).toBe('08-2026');
+    expect(url.searchParams.has('last')).toBe(false);
+  },
+);
+
+it('uses five-hour freshness for recent observations and a day for fixed history', async () => {
+  const cache = {
+    match: vi.fn().mockResolvedValue(undefined),
+    put: vi.fn<(key: string, response: Response) => Promise<void>>().mockResolvedValue(undefined),
+  };
+  vi.stubGlobal('caches', { default: cache });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(async () => jsonResponse(cbsResponse(ENTRIES_A))),
+  );
+
+  await fetchIndexData('cpi', { from: '2024-01', to: '2024-03' });
+  await fetchIndexData('construction', { from: '2024-01', to: '2099-01' });
+  await fetchIndexData('housing');
+
+  const headers = cache.put.mock.calls.map(([, response]: [string, Response]) =>
+    response.headers.get('Cache-Control'),
+  );
+  expect(headers).toEqual(['max-age=86400', 'max-age=18000', 'max-age=18000', 'max-age=18000']);
+});

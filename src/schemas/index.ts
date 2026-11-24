@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HOUSING_DISTRICTS } from '../services/cbsDistricts.js';
 
 const PERIOD_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -16,6 +17,12 @@ export const calcQuerySchema = z.object({
     })
     .default('cpi'),
   format: z.enum(['text', 'json'] as const).default('text'),
+  basis: z.enum(['period', 'known']).optional(),
+  region: z
+    .enum(HOUSING_DISTRICTS, {
+      message: `Choose a housing region: ${HOUSING_DISTRICTS.join(', ')}.`,
+    })
+    .optional(),
 });
 
 export const etfQuerySchema = z.object({

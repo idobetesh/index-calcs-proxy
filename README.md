@@ -28,7 +28,7 @@ Given an original amount and a starting month, the worker calls the CBS official
 | `construction` | 200010 | Construction input price index (residential) |
 | `housing`      | 40010  | Prices of dwellings                          |
 
-**Calculation strategy:** CBS official calculator API is the primary source (handles base-year chaining with official coefficients). If the CBS API is unavailable, falls back to chaining monthly percent changes from the CBS price series.
+**Calculation strategy:** The Worker uses the CBS official calculator and the CBS price series. For Sheets requests using `basis=known`, it fetches a historical date range, applies the HON publication lags, and accepts a CBS calculator result only when both index months match. It can also chain monthly changes for CPI and construction or compare dwelling index values on the same base.
 
 ---
 
@@ -44,14 +44,17 @@ Returns an inflation-adjusted amount.
 
 **Query parameters**
 
-| Parameter | Required | Default                                       | Description                                       |
-| --------- | -------- | --------------------------------------------- | ------------------------------------------------- |
-| `amount`  | Yes      | —                                             | Original amount (positive number)                 |
-| `from`    | Yes      | —                                             | Start period (`YYYY-MM`)                          |
-| `to`      | No       | current month (CBS snaps to latest published) | End period (`YYYY-MM`)                            |
-| `index`   | No       | `cpi`                                         | Index type: `cpi`, `construction`, `housing`      |
-| `format`  | No       | `text`                                        | Response format: `text` or `json`                 |
-| `secret`  | Yes\*    | —                                             | Auth secret (\*or `Authorization: Bearer` header) |
+| Parameter | Required | Default                                       | Description                                                              |
+| --------- | -------- | --------------------------------------------- | ------------------------------------------------------------------------ |
+| `amount`  | Yes      | —                                             | Original amount (positive number)                                        |
+| `from`    | Yes      | —                                             | Start period (`YYYY-MM`)                                                 |
+| `to`      | No       | current month (CBS snaps to latest published) | End period (`YYYY-MM`)                                                   |
+| `index`   | No       | `cpi`                                         | Index type: `cpi`, `construction`, `housing`                             |
+| `format`  | No       | `text`                                        | Response format: `text` or `json`                                        |
+| `basis`   | No       | `period`                                      | `period` selects index months. `known` uses the Sheets publication lags. |
+| `secret`  | Yes\*    | —                                             | Auth secret (\*or `Authorization: Bearer` header)                        |
+
+For district dwelling prices, pass `index=housing&region=central`. The region options are `jerusalem`, `north`, `haifa`, `central`, `tel aviv`, and `south`. A region request defaults to `basis=known`, accepts `basis=period` for direct index months, and resolves the district's series through the CBS catalog. The Worker caches district IDs for 24 hours per instance. Its data-center cache keeps recent CBS observations for 5 hours and fixed historical ranges for 24 hours. Recent dwelling observations include a buffer for revisions to the three provisional periods. Empty responses and upstream failures are fetched again on the next request.
 
 **Text response** (default, for Google Sheets):
 
@@ -413,7 +416,7 @@ Use the bound Apps Script in [`gs/`](gs/README.md) (`clasp push`). Set **`SECRET
 
 | Function         | Example                                          | Returns                                                                                                                                                                                            |
 | ---------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CALC_AMOUNT`    | `=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")`    | Indexed amount (integer). HON first, then Worker.                                                                                                                                                  |
+| `CALC_AMOUNT`    | `=CALC_AMOUNT(F3, TEXT(G3,"YYYY-MM"), "cpi")`    | Indexed amount (integer). CBS first, then HON for national indexes.                                                                                                                                |
 | `CALC_PERCENT`   | `=CALC_PERCENT(1, TEXT(G3,"YYYY-MM"), "cpi")`    | % change as decimal fraction (`TEXT(...,"0.00%")` for display).                                                                                                                                    |
 | `CALC_INDEX`     | `=CALC_INDEX(F3, TEXT(G3,"YYYY-MM"), "housing")` | Two lines: amount + fraction (`SPLIT` / `INDEX`).                                                                                                                                                  |
 | `HONINDEX`       | `=HONINDEX(G3, F3, "cpi")`                       | HON-only indexed amount (date, amount, type — note argument order).                                                                                                                                |
