@@ -2,7 +2,7 @@ export type IndexType = 'cpi' | 'construction' | 'housing';
 
 export const INDEX_IDS: Record<IndexType, number> = {
   cpi: 120010,
-  construction: 120350,
+  construction: 200010,
   housing: 40010,
 };
 

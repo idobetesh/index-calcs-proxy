@@ -18,6 +18,7 @@ const env = { SECRET_KEY: 'test-secret', ENVIRONMENT: 'test' };
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('GET /health', () => {
@@ -150,5 +151,108 @@ describe('GET /', () => {
     expect(html).toContain('Index Calculator');
     expect(html).not.toContain('test-secret');
     expect(res.headers.get('set-cookie')).toContain('icp_session=');
+  });
+});
+
+describe('GET /calc - known index', () => {
+  it('matches the HON dwelling example using the CBS release available to HON', async () => {
+    const fetchData = vi.spyOn(cbs, 'fetchIndexData').mockResolvedValue([
+      { period: '2023-11', value: 558.0, monthlyPercent: 0.6 },
+      { period: '2026-06', value: 594.8, monthlyPercent: 0.2 },
+    ]);
+    const req = makeRequest(
+      '/calc?amount=3995000&from=2024-02&to=2026-11&index=housing&basis=known&format=json&secret=test-secret',
+    );
+    const res = await app.fetch(req, env);
+
+    expect(fetchData).toHaveBeenCalledWith('housing', { from: '2023-03', to: '2026-08' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      fromPeriod: '2023-11',
+      toPeriod: '2026-06',
+      indexedAmount: 4258470,
+      percentage: 6.59,
+    });
+  });
+
+  it('resolves a district series dynamically and uses its CBS observations', async () => {
+    const fetchData = vi.fn().mockImplementation(async (url: string) => {
+      const endpoint = new URL(url);
+      if (endpoint.pathname.endsWith('/catalog/subject')) {
+        expect(endpoint.searchParams.get('id')).toBe('166');
+        return Response.json({
+          subjectId: 166,
+          code: [
+            { code: 1, codeName: 'Southern District' },
+            { code: 2, codeName: 'Central District' },
+          ],
+        });
+      }
+      expect(endpoint.pathname).toBe('/index/data/price');
+      expect(endpoint.searchParams.get('id')).toBe('2');
+      expect(endpoint.searchParams.get('endPeriod')).toBe('06-2026');
+      return Response.json({
+        month: [
+          {
+            code: 2,
+            date: [
+              { year: 2023, month: 11, currBase: { value: 573.5 } },
+              { year: 2026, month: 6, currBase: { value: 584.5 } },
+            ],
+          },
+        ],
+      });
+    });
+    vi.stubGlobal('fetch', fetchData);
+    const cache = new Map<string, Response>();
+    vi.stubGlobal('caches', {
+      default: {
+        match: async (key: string) => cache.get(key)?.clone(),
+        put: async (key: string, value: Response) => {
+          cache.set(key, value);
+        },
+      },
+    });
+
+    const req = makeRequest(
+      '/calc?amount=3995000&from=2024-02&to=2026-09&index=housing&region=central&format=json&secret=test-secret',
+    );
+    const res = await app.fetch(req, env);
+    expect(res.status, await res.clone().text()).toBe(200);
+    expect(await res.json()).toMatchObject({
+      fromPeriod: '2023-11',
+      toPeriod: '2026-06',
+      percentage: 1.92,
+    });
+    const repeated = await app.fetch(req, env);
+    expect(repeated.status).toBe(200);
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    expect(new URL(fetchData.mock.calls[1]?.[0] as string).searchParams.get('startPeriod')).toBe(
+      '03-2023',
+    );
+
+    const direct = makeRequest(
+      '/calc?amount=3995000&from=2023-11&to=2026-06&index=housing&region=central&basis=period&format=json&secret=test-secret',
+    );
+    const directResponse = await app.fetch(direct, env);
+    expect(directResponse.status).toBe(200);
+    expect(await directResponse.json()).toMatchObject({
+      fromPeriod: '2023-11',
+      toPeriod: '2026-06',
+    });
+    expect(new URL(fetchData.mock.calls[2]?.[0] as string).searchParams.get('startPeriod')).toBe(
+      '11-2023',
+    );
+  });
+
+  it('lists the choices when the region is invalid', async () => {
+    const req = makeRequest(
+      '/calc?amount=1&from=2024-02&index=housing&region=bad&secret=test-secret',
+    );
+    const res = await app.fetch(req, env);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: 'Choose a housing region: jerusalem, north, haifa, central, tel aviv, south.',
+    });
   });
 });

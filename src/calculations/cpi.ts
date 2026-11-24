@@ -23,7 +23,10 @@ export async function calculateCpi(params: CalcParams): Promise<CalcResult> {
 }
 
 async function chainingCalc(params: CalcParams): Promise<CalcResult> {
-  const entries = await fetchIndexData('cpi');
+  let entries = await fetchIndexData('cpi');
+  if (entries[0] && params.from < entries[0].period) {
+    entries = await fetchIndexData('cpi', params);
+  }
 
   const fromEntry = findEntry(entries, params.from);
   if (!fromEntry) throw new Error(`CPI data not available for period: ${params.from}`);
@@ -75,7 +78,8 @@ function pickBest(
   if (aVal) return aVal;
   if (bVal) return bVal;
 
-  const reason =
-    a.status === 'rejected' ? String(a.reason) : String((b as PromiseRejectedResult).reason);
-  throw new Error(`${label} calculation failed: ${reason}`);
+  const errors = [a, b].flatMap((result) =>
+    result.status === 'rejected' ? [String(result.reason)] : [],
+  );
+  throw new Error(`${label} calculation failed: ${errors.join('; ')}`);
 }

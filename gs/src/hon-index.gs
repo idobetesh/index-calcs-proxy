@@ -51,8 +51,11 @@ function getHonIndexMap_(type) {
     followRedirects: true,
   });
 
-  if (response.getResponseCode() !== 200) {
-    throw new Error('HON returned HTTP ' + response.getResponseCode());
+  const status = response.getResponseCode();
+  if (status !== 200) {
+    const error = new Error('HON returned HTTP ' + status);
+    error.httpStatus = status;
+    throw error;
   }
 
   const html = response.getContentText();

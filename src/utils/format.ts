@@ -19,3 +19,18 @@ export function isValidPeriod(period: string): boolean {
 export function isPeriodBefore(from: string, to: string): boolean {
   return from < to;
 }
+
+export function shiftPeriod(period: string, months: number): string {
+  const year = Number(period.slice(0, 4));
+  const month = Number(period.slice(5));
+  const offset = year * 12 + month - 1 + months;
+  return `${String(Math.floor(offset / 12)).padStart(4, '0')}-${String((offset % 12) + 1).padStart(2, '0')}`;
+}
+
+export function currentIsraelPeriod(): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date());
+}

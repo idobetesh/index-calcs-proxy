@@ -1,7 +1,7 @@
 /**
  * Index calculation helpers.
  *
- * CALC_* tries hon.co.il first (cached), then the Cloudflare Worker.
+ * CALC_* tries CBS through the Worker first. HON is a fallback for national indexes.
  *
  * Usage:
  *   =CALC_INDEX(F3, TEXT(G3,"YYYY-MM"), "cpi")        → "1082000\n0.0820"
@@ -15,6 +15,8 @@
  * Or using WORKER() directly with INDEX/SPLIT:
  *   =INDEX(SPLIT(WORKER("calc?amount="&INT(F3)&"&from="&TEXT(G3,"YYYY-MM")&"&index=cpi"), CHAR(10)), 1, 1)
  */
+
+var HOUSING_REGIONS = ['jerusalem', 'north', 'haifa', 'central', 'tel aviv', 'south'];
 
 /**
  * @param {Date|string|number} from
@@ -85,9 +87,11 @@ function parseCalcIndexRaw_(raw) {
  * @param {string} from
  * @param {string} index
  * @param {string=} to
+ * @param {string=} region
+ * @param {string=} basis
  * @returns {string}
  */
-function fetchWorkerCalcIndex_(amount, from, index, to) {
+function fetchWorkerCalcIndex_(amount, from, index, to, region, basis) {
   const roundedAmount = normalizeCalcAmount_(amount);
   let path =
     'calc?amount=' +
@@ -96,40 +100,70 @@ function fetchWorkerCalcIndex_(amount, from, index, to) {
     from +
     '&index=' +
     index +
-    '&format=text';
+    '&format=text&basis=' + basis;
   if (to) {
     path += '&to=' + to;
+  }
+  if (region) {
+    path += '&region=' + encodeURIComponent(region);
   }
   return WORKER(path);
 }
 
 /**
- * HON first, Worker on failure. Two lines: indexed amount, percent fraction.
+ * CBS first, HON on failure for national indexes. Two lines: indexed amount, percent fraction.
  *
  * @param {number} amount
  * @param {string} from
  * @param {string} index
  * @param {string=} to
+ * @param {string=} region
+ * @param {string=} basis
  * @returns {string}
  */
-function calcIndexRaw_(amount, from, index, to) {
+function calcIndexRaw_(amount, from, index, to, region, basis) {
   const roundedAmount = normalizeCalcAmount_(amount);
   const fromPeriod = normalizeCalcFrom_(from);
   const toPeriod =
     to !== undefined && to !== null && to !== '' ? normalizeCalcFrom_(to) : to;
 
+  const selectedBasis = String(basis == null ? '' : basis).trim().toLowerCase() || 'known';
+  if (selectedBasis !== 'known' && selectedBasis !== 'period') {
+    throw new Error('Choose a basis: known or period.');
+  }
+
+  const district = String(region == null ? '' : region).trim().toLowerCase();
+  if (district) {
+    if (String(index).trim().toLowerCase() !== 'housing') {
+      throw new Error('Region is available for the housing index.');
+    }
+    if (HOUSING_REGIONS.indexOf(district) === -1) {
+      throw new Error('Choose a housing region: ' + HOUSING_REGIONS.join(', ') + '.');
+    }
+    return fetchWorkerCalcIndex_(roundedAmount, fromPeriod, 'housing', toPeriod, district, selectedBasis);
+  }
+
+  if (selectedBasis === 'period') {
+    return fetchWorkerCalcIndex_(roundedAmount, fromPeriod, index, toPeriod, '', selectedBasis);
+  }
+
   try {
-    return honCalcIndexText_(roundedAmount, fromPeriod, index, toPeriod);
-  } catch (honError) {
+    return fetchWorkerCalcIndex_(roundedAmount, fromPeriod, index, toPeriod, '', selectedBasis);
+  } catch (workerError) {
+    const cache = CacheService.getScriptCache();
+    const blockedKey = 'hon_fallback_blocked_' + String(index).trim().toLowerCase();
+    if (cache.get(blockedKey) !== null) {
+      throw new Error('Worker failed (' + workerError.message + '); HON fallback paused after HTTP 403');
+    }
+
     try {
-      return fetchWorkerCalcIndex_(roundedAmount, fromPeriod, index, toPeriod);
-    } catch (workerError) {
+      return honCalcIndexText_(roundedAmount, fromPeriod, index, toPeriod);
+    } catch (honError) {
+      if (honError.httpStatus === 403) {
+        cache.put(blockedKey, '1', HON_CACHE_TTL_SEC);
+      }
       throw new Error(
-        'HON failed (' +
-          honError.message +
-          '); Worker failed (' +
-          workerError.message +
-          ')'
+        'Worker failed (' + workerError.message + '); HON failed (' + honError.message + ')'
       );
     }
   }
@@ -142,11 +176,13 @@ function calcIndexRaw_(amount, from, index, to) {
  * @param {string} from Start period YYYY-MM.
  * @param {string} index cpi, construction, or housing.
  * @param {string=} to End period YYYY-MM (optional; latest published if omitted).
+ * @param {string=} region Housing district. Blank uses the national index. Choices: jerusalem, north, haifa, central, tel aviv, south.
+ * @param {string=} basis known (default) uses publication lags; period uses index months.
  * @return {string} Line 1: indexed amount; line 2: fraction (e.g. 0.053).
  * @customfunction
  */
-function CALC_INDEX(amount, from, index, to) {
-  return calcIndexRaw_(amount, from, index, to);
+function CALC_INDEX(amount, from, index, to, region, basis) {
+  return calcIndexRaw_(amount, from, index, to, region, basis);
 }
 
 /**
@@ -156,11 +192,13 @@ function CALC_INDEX(amount, from, index, to) {
  * @param {string} from Start period YYYY-MM.
  * @param {string} index cpi, construction, or housing.
  * @param {string=} to End period YYYY-MM (optional).
+ * @param {string=} region Housing district. Blank uses the national index. Choices: jerusalem, north, haifa, central, tel aviv, south.
+ * @param {string=} basis known (default) uses publication lags; period uses index months.
  * @return {number} Indexed amount rounded to integer.
  * @customfunction
  */
-function CALC_AMOUNT(amount, from, index, to) {
-  const raw = calcIndexRaw_(amount, from, index, to);
+function CALC_AMOUNT(amount, from, index, to, region, basis) {
+  const raw = calcIndexRaw_(amount, from, index, to, region, basis);
   return parseCalcIndexRaw_(raw).indexedAmount;
 }
 
@@ -171,10 +209,12 @@ function CALC_AMOUNT(amount, from, index, to) {
  * @param {string} from Start period YYYY-MM.
  * @param {string} index cpi, construction, or housing.
  * @param {string=} to End period YYYY-MM (optional).
+ * @param {string=} region Housing district. Blank uses the national index. Choices: jerusalem, north, haifa, central, tel aviv, south.
+ * @param {string=} basis known (default) uses publication lags; period uses index months.
  * @return {number} Fraction (e.g. 0.082 for 8.2%).
  * @customfunction
  */
-function CALC_PERCENT(amount, from, index, to) {
-  const raw = calcIndexRaw_(amount, from, index, to);
+function CALC_PERCENT(amount, from, index, to, region, basis) {
+  const raw = calcIndexRaw_(amount, from, index, to, region, basis);
   return parseCalcIndexRaw_(raw).fraction;
 }

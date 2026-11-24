@@ -270,7 +270,22 @@ Returns a boolean — useful in `IF()` formulas:
 =CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "cpi")   → decimal fraction (e.g. 0.082)
 ```
 
-`CALC_INDEX`, `CALC_AMOUNT`, and `CALC_PERCENT` try **hon.co.il** first (cached ~4h), then fall back to the **Worker** if HON fails. Use `=HONINDEX(...)` when you need HON only (no fallback).
+`CALC_INDEX`, `CALC_AMOUNT`, and `CALC_PERCENT` use **CBS through the Worker** first. National indexes try **hon.co.il** if the Worker fails. An HTTP 403 pauses the HON fallback for that index for four hours. The Worker applies the same month offsets as the Sheets HON lookup and uses the available CBS releases. Results may differ when the providers have different release vintages or rounding. Use `=HONINDEX(...)` when you need HON only (no fallback).
+
+For a dwelling-price district, pass the region as the fifth argument. Use an empty fourth argument to let the Worker choose the end period.
+
+```
+=CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "housing", "", "central")
+=CALC_PERCENT(F3, TEXT(G3,"YYYY-MM"), "housing", "", J3)
+```
+
+The district choices are `jerusalem`, `north`, `haifa`, `central`, `tel aviv`, and `south`. These choices also appear in the formula help for `CALC_INDEX`, `CALC_AMOUNT`, and `CALC_PERCENT`. District calculations use the live CBS district catalog and price series. Leave the region blank or omit it to use the national index. The optional sixth argument is `basis`. It defaults to `"known"`, which applies publication lags. Use `"period"` to specify the index months directly.
+
+```
+=CALC_PERCENT(F3, "2023-11", "housing", "2026-06", "", "period")
+```
+
+HON fallback is available for national calculations using the default `"known"` basis.
 
 Example change label (no sheet `IFERROR`):
 

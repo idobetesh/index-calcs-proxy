@@ -1,8 +1,11 @@
 import { CbsApiResponse, CbsIndexEntry, DataSource, IndexType, INDEX_IDS } from '../types/cbs.js';
 import { fetchWithTimeout } from '../utils/fetch.js';
+import { currentIsraelPeriod, shiftPeriod } from '../utils/format.js';
 
 const CBS_BASE_URL = 'https://api.cbs.gov.il/index/data/price';
 const TIMEOUT_MS = 10_000;
+const RECENT_TTL_SECONDS = 5 * 60 * 60;
+const HISTORICAL_TTL_SECONDS = 24 * 60 * 60;
 
 /**
  * Multiple source URLs per index.
@@ -35,7 +38,20 @@ function cbsPagedUrl(id: number, pageSize: number): string {
 /**
  * Fetches a single source URL with timeout.
  */
-async function fetchSource(source: DataSource): Promise<CbsIndexEntry[]> {
+async function fetchSource(
+  source: DataSource,
+  range?: { to: string; index: IndexType },
+): Promise<CbsIndexEntry[]> {
+  const cache = typeof caches === 'undefined' ? undefined : caches.default;
+  const cacheKey = source.url + '&worker-cache=cbs-price-v1';
+  const cached = await cache?.match(cacheKey).catch(() => undefined);
+  if (cached) {
+    try {
+      return parseCbsResponse(await cached.json());
+    } catch {
+      // Fetch again if the cache entry is unreadable.
+    }
+  }
   try {
     const response = await fetchWithTimeout(
       source.url,
@@ -44,11 +60,36 @@ async function fetchSource(source: DataSource): Promise<CbsIndexEntry[]> {
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const raw: unknown = await response.json();
-    return parseCbsResponse(raw);
+    const entries = parseCbsResponse(raw);
+    if (cache && entries.length > 0) {
+      // Before the monthly release, the earliest provisional dwelling period
+      // can be six months back when labeled by the first transaction month.
+      const cutoff = shiftPeriod(currentIsraelPeriod(), range?.index === 'housing' ? -6 : -1);
+      const historical =
+        range && range.to < cutoff && entries.some((entry) => entry.period === range.to);
+      const ttl = historical ? HISTORICAL_TTL_SECONDS : RECENT_TTL_SECONDS;
+      await cache
+        .put(cacheKey, Response.json(raw, { headers: { 'Cache-Control': `max-age=${ttl}` } }))
+        .catch(() => undefined);
+    }
+    return entries;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`[${source.label}] ${msg}`);
   }
+}
+
+export function fetchIndexRange(
+  id: number,
+  range: { from: string; to: string },
+  index: IndexType,
+): Promise<CbsIndexEntry[]> {
+  const [fromYear, fromMonth] = range.from.split('-');
+  const [toYear, toMonth] = range.to.split('-');
+  const url =
+    `${CBS_BASE_URL}?id=${id}&startPeriod=${fromMonth}-${fromYear}` +
+    `&endPeriod=${toMonth}-${toYear}&format=json&lang=en&download=false`;
+  return fetchSource({ label: 'cbs-range', url }, { to: range.to, index });
 }
 
 /**
@@ -56,9 +97,14 @@ async function fetchSource(source: DataSource): Promise<CbsIndexEntry[]> {
  * Returns the dataset with the most recent entry.
  * Throws only if every source fails.
  */
-export async function fetchIndexData(indexType: IndexType): Promise<CbsIndexEntry[]> {
+export async function fetchIndexData(
+  indexType: IndexType,
+  range?: { from: string; to: string },
+): Promise<CbsIndexEntry[]> {
+  if (range) return fetchIndexRange(INDEX_IDS[indexType], range, indexType);
+
   const sources = SOURCES[indexType];
-  const results = await Promise.allSettled(sources.map(fetchSource));
+  const results = await Promise.allSettled(sources.map((source) => fetchSource(source)));
 
   const errors: string[] = [];
   let best: CbsIndexEntry[] | null = null;
@@ -76,7 +122,10 @@ export async function fetchIndexData(indexType: IndexType): Promise<CbsIndexEntr
     // Pick whichever dataset has the more recent latest entry
     const bestPeriod = latestEntry(best)?.period ?? '';
     const currentPeriod = latestEntry(entries)?.period ?? '';
-    if (currentPeriod > bestPeriod) {
+    if (
+      currentPeriod > bestPeriod ||
+      (currentPeriod === bestPeriod && entries.length > best.length)
+    ) {
       best = entries;
     }
   }
